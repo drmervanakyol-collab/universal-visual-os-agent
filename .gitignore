@@ -9,3 +9,4 @@ build/
 venv/
 .env
 data/*.sqlite3
+.tmp_test_artifacts/
