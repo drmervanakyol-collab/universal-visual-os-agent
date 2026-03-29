@@ -73,6 +73,87 @@ class TestablePrintWindowBackend(WindowsForegroundWindowPrintCaptureBackend):
         return 1234
 
 
+class ScriptedPrintWindowBackend(WindowsForegroundWindowPrintCaptureBackend):
+    def __init__(
+        self,
+        *,
+        detected_handles: tuple[int | None, ...] = (1234,),
+        valid_handle: bool = True,
+        visible: bool = True,
+        minimized: bool = False,
+        bounds: ScreenBBox | None = None,
+        bounds_error: WindowsCaptureStageError | None = None,
+        capture_result: RawWindowsCapture | None = None,
+        capture_error: WindowsCaptureStageError | None = None,
+        environment_details: dict[str, object] | None = None,
+    ) -> None:
+        self._detected_handles = detected_handles
+        self._detected_handle_index = 0
+        self._valid_handle = valid_handle
+        self._visible = visible
+        self._minimized = minimized
+        self._bounds = bounds or ScreenBBox(left_px=10, top_px=20, width_px=300, height_px=200)
+        self._bounds_error = bounds_error
+        self._capture_result = capture_result or _success_capture(
+            width=self._bounds.width_px,
+            height=self._bounds.height_px,
+            origin_x_px=self._bounds.left_px,
+            origin_y_px=self._bounds.top_px,
+            backend_name="printwindow_foreground",
+        )
+        self._capture_error = capture_error
+        self._environment_details = {
+            "backend_name": self.backend_name,
+            "platform": "win32",
+            "session_name": "Console",
+            "is_remote_session": False,
+            "input_desktop_accessible": True,
+        }
+        if environment_details is not None:
+            self._environment_details.update(environment_details)
+
+    def _is_windows_platform(self) -> bool:
+        return True
+
+    def _detect_foreground_window_handle(self) -> int | None:
+        if self._detected_handle_index < len(self._detected_handles):
+            handle = self._detected_handles[self._detected_handle_index]
+            self._detected_handle_index += 1
+            return handle
+        return self._detected_handles[-1] if self._detected_handles else None
+
+    def _is_window_handle_valid(self, window_handle: int) -> bool:
+        return self._valid_handle
+
+    def _is_window_visible(self, window_handle: int) -> bool:
+        return self._visible
+
+    def _is_window_minimized(self, window_handle: int) -> bool:
+        return self._minimized
+
+    def _get_window_bounds(self, window_handle: int) -> ScreenBBox:
+        if self._bounds_error is not None:
+            raise self._bounds_error
+        return self._bounds
+
+    def _capture_environment_details(self) -> dict[str, object]:
+        return dict(self._environment_details)
+
+    def _capture_window_image(
+        self,
+        *,
+        window_handle: int,
+        bounds: ScreenBBox,
+        attempt: object,
+        requested_window_handle: int | None,
+        detected_foreground_window_handle: int | None,
+        environment_details: object,
+    ) -> RawWindowsCapture:
+        if self._capture_error is not None:
+            raise self._capture_error
+        return self._capture_result
+
+
 def _single_display_metrics(*, width_px: int = 640, height_px: int = 480) -> VirtualDesktopMetrics:
     return VirtualDesktopMetrics(
         displays=(
@@ -153,6 +234,168 @@ def test_printwindow_backend_reports_unavailable_for_virtual_desktop_target() ->
     assert capability.available is False
     assert capability.backend_name == "printwindow_foreground"
     assert "foreground_window" in capability.reason
+
+
+def test_printwindow_backend_reports_unavailable_when_no_foreground_window_exists() -> None:
+    backend = ScriptedPrintWindowBackend(detected_handles=(None,))
+
+    capability = backend.detect_capability(WindowsCaptureRequest(target=WindowsCaptureTarget.foreground_window))
+
+    assert capability.available is False
+    assert capability.reason == "No foreground window is available for PrintWindow capture."
+    assert capability.details["target"] == WindowsCaptureTarget.foreground_window
+
+
+def test_printwindow_backend_reports_unavailable_when_foreground_window_is_minimized() -> None:
+    backend = ScriptedPrintWindowBackend(minimized=True)
+
+    capability = backend.detect_capability(WindowsCaptureRequest(target=WindowsCaptureTarget.foreground_window))
+
+    assert capability.available is False
+    assert capability.reason == "Foreground window is minimized and will not be captured."
+    assert capability.details["window_minimized"] is True
+
+
+def test_printwindow_backend_reports_unavailable_when_foreground_window_is_invisible() -> None:
+    backend = ScriptedPrintWindowBackend(visible=False)
+
+    capability = backend.detect_capability(WindowsCaptureRequest(target=WindowsCaptureTarget.foreground_window))
+
+    assert capability.available is False
+    assert capability.reason == "Foreground window is not visible for PrintWindow capture."
+    assert capability.details["window_visible"] is False
+
+
+def test_printwindow_capture_rejects_unsupported_target_with_structured_stage() -> None:
+    backend = ScriptedPrintWindowBackend()
+
+    with pytest.raises(WindowsCaptureStageError) as exc_info:
+        backend.capture(
+            WindowsCaptureRequest(
+                target=WindowsCaptureTarget.virtual_desktop,
+                bounds=ScreenBBox(left_px=0, top_px=0, width_px=100, height_px=100),
+            )
+        )
+
+    assert exc_info.value.stage == "unsupported_request_target"
+    assert exc_info.value.diagnostics["backend_name"] == "printwindow_foreground"
+    assert exc_info.value.diagnostics["target"] == WindowsCaptureTarget.virtual_desktop
+
+
+def test_printwindow_capture_reports_no_foreground_window_with_structured_diagnostics() -> None:
+    backend = ScriptedPrintWindowBackend(detected_handles=(None,))
+
+    with pytest.raises(WindowsCaptureStageError) as exc_info:
+        backend.capture(WindowsCaptureRequest(target=WindowsCaptureTarget.foreground_window))
+
+    assert exc_info.value.stage == "detect_target_window"
+    assert exc_info.value.diagnostics["failure_classification"] == "no_foreground_window"
+    assert exc_info.value.diagnostics["platform"] == "win32"
+    assert exc_info.value.diagnostics["target_window_resolved"] is False
+
+
+def test_printwindow_capture_reports_invalid_window_handle_with_structured_diagnostics() -> None:
+    backend = ScriptedPrintWindowBackend(valid_handle=False)
+
+    with pytest.raises(WindowsCaptureStageError) as exc_info:
+        backend.capture(WindowsCaptureRequest(target=WindowsCaptureTarget.foreground_window))
+
+    assert exc_info.value.stage == "validate_window_handle"
+    assert exc_info.value.diagnostics["failure_classification"] == "inaccessible_window_handle"
+    assert exc_info.value.diagnostics["target_window_handle"] == 1234
+    assert exc_info.value.diagnostics["window_handle_validated"] is False
+
+
+def test_printwindow_capture_reports_foreground_window_change_before_capture() -> None:
+    backend = ScriptedPrintWindowBackend(detected_handles=(1234, 4321))
+
+    with pytest.raises(WindowsCaptureStageError) as exc_info:
+        backend.capture(WindowsCaptureRequest(target=WindowsCaptureTarget.foreground_window))
+
+    assert exc_info.value.stage == "foreground_window_changed"
+    assert exc_info.value.diagnostics["failure_classification"] == "foreground_window_changed"
+    assert exc_info.value.diagnostics["foreground_window_change_phase"] == "before_capture"
+    assert exc_info.value.diagnostics["current_foreground_window_handle"] == 4321
+
+
+def test_printwindow_capture_reports_printwindow_failure_details() -> None:
+    backend = ScriptedPrintWindowBackend(
+        capture_error=WindowsCaptureStageError(
+            stage="print_window",
+            message="PrintWindow failed for all supported flags.",
+            diagnostics={
+                "failure_classification": "printwindow_failed",
+                "print_window_attempts": (
+                    {
+                        "print_window_flag": 0,
+                        "print_window_flag_name": "PW_DEFAULT",
+                        "printed": False,
+                    },
+                ),
+                "environment_limitation_suspected": True,
+                "environment_limitation_reasons": ("printwindow_returned_failure_without_last_error",),
+            },
+        )
+    )
+
+    with pytest.raises(WindowsCaptureStageError) as exc_info:
+        backend.capture(WindowsCaptureRequest(target=WindowsCaptureTarget.foreground_window))
+
+    assert exc_info.value.stage == "print_window"
+    assert exc_info.value.diagnostics["failure_classification"] == "printwindow_failed"
+    assert exc_info.value.diagnostics["environment_limitation_suspected"] is True
+    assert exc_info.value.diagnostics["print_window_attempts"][0]["print_window_flag_name"] == "PW_DEFAULT"
+    assert exc_info.value.diagnostics["window_visible"] is True
+
+
+def test_provider_distinguishes_bitmap_readback_failure_for_printwindow_backend() -> None:
+    provider = WindowsObserveOnlyCaptureProvider(
+        screen_metrics_provider=RaisingScreenMetricsProvider(),
+        capture_target=WindowsCaptureTarget.foreground_window,
+        capture_backends=(
+            ScriptedPrintWindowBackend(
+                capture_error=WindowsCaptureStageError(
+                    stage="get_dibits",
+                    message="GetDIBits failed.",
+                    diagnostics={"failure_classification": "bitmap_readback_failed"},
+                ),
+            ),
+        ),
+    )
+
+    result = provider.capture_frame()
+
+    assert result.success is False
+    assert result.error_code == "bitmap_read_failed"
+    assert result.details["failing_stage"] == "get_dibits"
+    assert result.details["backend_attempts"][0]["failure_classification"] == "bitmap_readback_failed"
+
+
+def test_provider_surfaces_printwindow_stage_failure_without_unhandled_exception() -> None:
+    provider = WindowsObserveOnlyCaptureProvider(
+        screen_metrics_provider=RaisingScreenMetricsProvider(),
+        capture_target=WindowsCaptureTarget.foreground_window,
+        capture_backends=(
+            ScriptedPrintWindowBackend(
+                capture_error=WindowsCaptureStageError(
+                    stage="print_window",
+                    message="PrintWindow failed for all supported flags.",
+                    diagnostics={
+                        "failure_classification": "printwindow_failed",
+                        "environment_limitation_suspected": True,
+                    },
+                ),
+            ),
+        ),
+    )
+
+    result = provider.capture_frame()
+
+    assert result.success is False
+    assert result.error_code == "window_print_failed"
+    assert result.details["failing_stage"] == "print_window"
+    assert result.details["backend_attempts"][0]["failure_classification"] == "printwindow_failed"
+    assert result.details["backend_attempts"][0]["environment_limitation_suspected"] is True
 
 
 def test_provider_reports_structured_unavailable_backend_selection() -> None:

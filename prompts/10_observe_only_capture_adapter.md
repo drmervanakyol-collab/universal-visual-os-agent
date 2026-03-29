@@ -36,7 +36,7 @@ Before finishing:
 
 If capture is unavailable, return a safe structured failure/result instead of throwing unhandled errors.
 
---------BitBlt failed hatası teşhisi için 
+--------BitBlt failed hatası teşhisi için-----------
 
 Read `AGENTS.md`, `docs/SPEC.md`, and `docs/EXECPLAN.md`.
 
@@ -88,3 +88,115 @@ Important:
 - If capture still fails in this environment, do not hide that fact.
 - If the issue appears environment-specific, say so clearly and explain why.
 - Keep the implementation tightly scoped to diagnostics and hardening of the existing capture adapter only.
+
+-----------tam çözülmedi----
+
+Read `AGENTS.md`, `docs/SPEC.md`, and `docs/EXECPLAN.md`.
+
+Implement a focused read-only capture backend strategy improvement for the existing Windows observe-only capture layer.
+
+Scope:
+- do not add live input
+- do not add action execution
+- do not expand planning or semantic extraction
+- work only on the observe-only capture stack and its abstractions
+
+Goals:
+- keep the current GDI/BitBlt capture path as one backend
+- introduce a backend strategy abstraction so multiple read-only capture backends can be selected safely
+- add capability detection / backend selection logic
+- preserve structured failure behavior and diagnostics
+- prefer safe, explicit backend reporting over silent fallback
+
+Required work:
+- define a capture backend abstraction and backend selection result
+- keep the existing GDI backend
+- investigate and implement, if feasible within current repo constraints, one additional read-only Windows capture backend path
+- if a full alternate backend is not feasible, still implement:
+  - backend strategy abstraction
+  - capability detection hooks
+  - structured “why this backend is unavailable” reporting
+- isolate all OS-specific logic under integrations/windows
+- do not add third-party runtime dependencies unless absolutely necessary; ask first if one is needed
+
+Preferred backend candidates:
+- a safer alternate Windows read-only backend for display/window capture
+- if only window-level capture is feasible in this pass, keep that clearly separated from full desktop capture
+
+Tests to add/update:
+- backend selection behavior
+- capability detection output
+- structured unavailable-backend reporting
+- safe fallback ordering
+- no unhandled exception propagation
+- preservation of observe-only semantics
+
+Validation requirements:
+- run the pre-delivery self-debug loop
+- run compile/import/test validation
+- include one read-only runtime smoke test if possible
+- clearly separate:
+  - actually executed checks
+  - environment-specific failures
+  - static reasoning only
+
+Important:
+- If the existing GDI backend still fails in this environment, do not hide that fact.
+- If an alternate backend cannot be fully implemented safely in this pass, say so clearly and leave the code in a cleaner backend-strategy state.
+- Keep the implementation tightly scoped to capture backend strategy and safe diagnostics only.
+
+-----alt yapı düzeldi ama sorun çözülmedi----
+
+Read `AGENTS.md`, `docs/SPEC.md`, and `docs/EXECPLAN.md`.
+
+Implement a focused live-validation and hardening pass for the existing read-only PrintWindow foreground-window capture backend only.
+
+Scope:
+- do not add live input
+- do not add action execution
+- do not expand planning or semantic extraction
+- work only on the existing PrintWindow foreground-window capture path and its diagnostics/tests
+
+Goals:
+- validate whether the existing PrintWindow foreground-window backend can successfully capture in this environment
+- improve its structured diagnostics and stage reporting
+- clearly distinguish:
+  - unsupported target
+  - no foreground window
+  - inaccessible window handle
+  - PrintWindow failure
+  - bitmap/readback failure
+  - environment/session limitations
+- keep everything strictly read-only and observe-only
+
+Required work:
+- add or improve runtime smoke validation for foreground_window capture
+- improve structured failure/result details for the PrintWindow path
+- add any small hardening needed for:
+  - invalid hwnd
+  - minimized/invisible/unsupported windows
+  - foreground window changes during capture
+- preserve safe structured failure behavior
+- do not add third-party runtime dependencies unless absolutely necessary; ask first if one is needed
+
+Tests to add/update:
+- foreground-window backend selection behavior
+- unsupported target handling
+- no-foreground-window behavior
+- structured diagnostic output shape
+- no unhandled exception propagation
+- safe behavior when PrintWindow returns failure
+
+Validation requirements:
+- run the pre-delivery self-debug loop
+- run compile/import/test validation
+- include one read-only runtime smoke test for foreground_window capture if possible
+- clearly separate:
+  - actually executed checks
+  - environment-specific failures
+  - static reasoning only
+
+Important:
+- If live PrintWindow capture still fails in this environment, do not hide that fact.
+- If it succeeds, report the exact target type and success path clearly.
+- Keep the implementation tightly scoped to the existing PrintWindow foreground-window backend only.

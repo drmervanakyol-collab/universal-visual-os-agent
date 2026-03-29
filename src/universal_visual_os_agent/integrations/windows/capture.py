@@ -301,6 +301,10 @@ def _error_code_for_stage(stage: str) -> str:
     return {
         "validate_bounds": "invalid_capture_bounds",
         "unsupported_request_target": "unsupported_capture_target",
+        "validate_window_handle": "target_window_inaccessible",
+        "validate_window_visibility": "target_window_not_visible",
+        "validate_window_state": "target_window_unsupported_state",
+        "foreground_window_changed": "foreground_window_changed",
         "acquire_source_dc": "source_dc_failed",
         "create_memory_dc": "memory_dc_failed",
         "create_bitmap": "bitmap_creation_failed",
