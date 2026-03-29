@@ -13,6 +13,7 @@ class AuditEvent:
 
     category: str
     message: str
+    task_id: str | None = None
+    event_id: int | None = None
     details: Mapping[str, object] = field(default_factory=dict)
     recorded_at: datetime = field(default_factory=lambda: datetime.now(UTC))
-
