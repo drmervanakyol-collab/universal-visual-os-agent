@@ -6,6 +6,7 @@ from universal_visual_os_agent.geometry.models import (
     NormalizedPoint,
     ScreenBBox,
     ScreenMetrics,
+    ScreenMetricsQueryResult,
     ScreenPoint,
     VirtualDesktopMetrics,
 )
@@ -21,6 +22,7 @@ __all__ = [
     "NormalizedPoint",
     "ScreenBBox",
     "ScreenMetrics",
+    "ScreenMetricsQueryResult",
     "ScreenMetricsProvider",
     "ScreenPoint",
     "VirtualDesktopMetrics",

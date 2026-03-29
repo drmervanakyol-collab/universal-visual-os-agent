@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from typing import Mapping
 
 
 def _validate_normalized(value: float, *, field_name: str) -> None:
@@ -165,4 +166,64 @@ class VirtualDesktopMetrics:
             top_px=top,
             width_px=right - left,
             height_px=bottom - top,
+        )
+
+
+@dataclass(slots=True, frozen=True, kw_only=True)
+class ScreenMetricsQueryResult:
+    """Structured result for safe screen-metrics provider queries."""
+
+    provider_name: str
+    success: bool
+    metrics: VirtualDesktopMetrics | None = None
+    error_code: str | None = None
+    error_message: str | None = None
+    details: Mapping[str, object] = field(default_factory=dict)
+
+    def __post_init__(self) -> None:
+        if not self.provider_name:
+            raise ValueError("provider_name must not be empty.")
+        if self.success and self.metrics is None:
+            raise ValueError("Successful query results must include metrics.")
+        if not self.success and self.error_code is None:
+            raise ValueError("Failed query results must include error_code.")
+        if self.success and (self.error_code is not None or self.error_message is not None):
+            raise ValueError("Successful query results must not include error details.")
+        if not self.success and self.metrics is not None:
+            raise ValueError("Failed query results must not include metrics.")
+
+    @classmethod
+    def ok(
+        cls,
+        *,
+        provider_name: str,
+        metrics: VirtualDesktopMetrics,
+        details: Mapping[str, object] | None = None,
+    ) -> ScreenMetricsQueryResult:
+        """Build a successful query result."""
+
+        return cls(
+            provider_name=provider_name,
+            success=True,
+            metrics=metrics,
+            details={} if details is None else details,
+        )
+
+    @classmethod
+    def failure(
+        cls,
+        *,
+        provider_name: str,
+        error_code: str,
+        error_message: str,
+        details: Mapping[str, object] | None = None,
+    ) -> ScreenMetricsQueryResult:
+        """Build a failed query result."""
+
+        return cls(
+            provider_name=provider_name,
+            success=False,
+            error_code=error_code,
+            error_message=error_message,
+            details={} if details is None else details,
         )
