@@ -34,4 +34,4 @@ Before finishing:
 - fix obvious syntax/import/interface issues
 - run compile/import/test validation
 - provide a concise validation report
-- clearly separate actually executed checks from static reasoning
+- clearly separate actually executed checks from static reasoninggit
