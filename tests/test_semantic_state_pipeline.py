@@ -43,6 +43,16 @@ def test_layout_tree_parent_child_consistency() -> None:
     assert tree.children_of("root") == (button,)
 
 
+def test_layout_tree_nodes_are_immutable_after_construction() -> None:
+    root = SemanticLayoutNode(node_id="root", role="window")
+    source_nodes = {"root": root}
+
+    tree = SemanticLayoutTree(root_id="root", nodes=source_nodes)
+    source_nodes["other"] = SemanticLayoutNode(node_id="other", role="button")
+
+    assert "other" not in tree.nodes
+
+
 def test_layout_tree_rejects_inconsistent_parent_child_links() -> None:
     root = SemanticLayoutNode(node_id="root", role="window", child_ids=("button",))
     button = SemanticLayoutNode(node_id="button", role="button", parent_id="other")
@@ -82,6 +92,28 @@ def test_verification_contract_serialization_and_validation() -> None:
 def test_verification_contract_requires_at_least_one_expectation() -> None:
     with pytest.raises(ValueError, match="expectations must not be empty"):
         VerificationContract(contract_id="empty", expectations=())
+
+
+def test_verification_contract_from_dict_rejects_non_boolean_flags() -> None:
+    with pytest.raises(ValueError, match="require_all must be a bool"):
+        VerificationContract.from_dict(
+            {
+                "contract_id": "verify-submit",
+                "expectations": [{"target_candidate_id": "submit-button"}],
+                "require_all": "yes",
+            }
+        )
+
+
+def test_verification_contract_metadata_is_immutable() -> None:
+    contract = VerificationContract(
+        contract_id="verify-submit",
+        expectations=(SemanticStateExpectation(target_candidate_id="submit-button"),),
+        metadata={"phase": "semantic"},
+    )
+
+    with pytest.raises(TypeError):
+        contract.metadata["phase"] = "changed"
 
 
 def test_semantic_state_handles_missing_or_partial_data_safely() -> None:

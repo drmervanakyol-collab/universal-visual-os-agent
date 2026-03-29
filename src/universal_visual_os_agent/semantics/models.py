@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from types import MappingProxyType
+from typing import Mapping
 
 from universal_visual_os_agent.geometry.models import NormalizedBBox
 
@@ -37,9 +39,10 @@ class SemanticLayoutTree:
     """A validated parent/child index for semantic layout nodes."""
 
     root_id: str
-    nodes: dict[str, SemanticLayoutNode]
+    nodes: Mapping[str, SemanticLayoutNode]
 
     def __post_init__(self) -> None:
+        object.__setattr__(self, "nodes", MappingProxyType(dict(self.nodes)))
         if not self.root_id:
             raise ValueError("root_id must not be empty.")
         if self.root_id not in self.nodes:
