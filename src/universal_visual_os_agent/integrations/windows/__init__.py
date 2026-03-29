@@ -24,6 +24,14 @@ from universal_visual_os_agent.integrations.windows.capture_models import (
 from universal_visual_os_agent.integrations.windows.capture_printwindow import (
     WindowsForegroundWindowPrintCaptureBackend,
 )
+from universal_visual_os_agent.integrations.windows.foreground_capture_diagnostic import (
+    ForegroundCaptureDiagnosticResult,
+    ForegroundWindowMetadata,
+    ForegroundWindowMetadataReader,
+    ForegroundWindowMetadataResult,
+    WindowsForegroundWindowMetadataReader,
+    run_foreground_window_capture_diagnostic,
+)
 from universal_visual_os_agent.integrations.windows.screen_metrics import (
     CtypesWindowsMonitorApi,
     RawWindowsMonitorMetrics,
@@ -37,6 +45,10 @@ __all__ = [
     "CtypesWindowsMonitorApi",
     "RawWindowsCapture",
     "RawWindowsMonitorMetrics",
+    "ForegroundCaptureDiagnosticResult",
+    "ForegroundWindowMetadata",
+    "ForegroundWindowMetadataReader",
+    "ForegroundWindowMetadataResult",
     "WindowsCaptureBackend",
     "WindowsCaptureBackendCapability",
     "WindowsCaptureBackendSelection",
@@ -46,10 +58,12 @@ __all__ = [
     "WindowsCaptureTarget",
     "WindowsApiUnavailableError",
     "WindowsForegroundWindowPrintCaptureBackend",
+    "WindowsForegroundWindowMetadataReader",
     "WindowsGdiCaptureBackend",
     "WindowsObserveOnlyCaptureProvider",
     "WindowsMonitorApi",
     "WindowsScreenCaptureApi",
     "WindowsScreenMetricsProvider",
+    "run_foreground_window_capture_diagnostic",
     "select_capture_backends",
 ]

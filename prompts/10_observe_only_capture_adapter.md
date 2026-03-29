@@ -200,3 +200,48 @@ Important:
 - If live PrintWindow capture still fails in this environment, do not hide that fact.
 - If it succeeds, report the exact target type and success path clearly.
 - Keep the implementation tightly scoped to the existing PrintWindow foreground-window backend only.
+
+-------tanı için script oluşturma -------
+
+Read `AGENTS.md`, `docs/SPEC.md`, and `docs/EXECPLAN.md`.
+
+Implement a small local diagnostic utility for interactive Windows foreground-window capture validation only.
+
+Scope:
+- do not add live input
+- do not add action execution
+- do not expand planning, semantics, or replay
+- work only on a small manual diagnostic entry point for the existing observe-only capture stack
+
+Goals:
+- add a simple local diagnostic script or module that can be run manually by the user
+- check and print:
+  - whether a foreground window handle is detected
+  - basic foreground window metadata if available
+  - whether the PrintWindow backend can capture that foreground window
+  - structured success/failure details
+- optionally save a diagnostic image only if capture succeeds
+- keep everything strictly read-only and observe-only
+
+Requirements:
+- Python 3.14 style
+- type hints where appropriate
+- small, isolated implementation
+- no third-party runtime dependencies unless absolutely necessary; ask first if one is needed
+- no live input
+- no action execution
+
+Tests:
+- add focused tests for the diagnostic result shape and safe failure behavior
+- do not over-expand scope
+
+Validation requirements:
+- run the pre-delivery self-debug loop
+- run compile/import/test validation
+- clearly separate actually executed checks from static reasoning
+
+Important:
+- the utility must be intended for manual local execution by the user in an interactive desktop session
+- if capture succeeds, report that clearly
+- if no foreground window is visible, report that clearly
+- keep the implementation tightly scoped to diagnostics only
