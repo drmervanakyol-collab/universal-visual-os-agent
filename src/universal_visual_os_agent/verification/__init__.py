@@ -1,7 +1,15 @@
 """Verification contracts."""
 
 from universal_visual_os_agent.verification.interfaces import Verifier
-from universal_visual_os_agent.verification.models import VerificationResult
+from universal_visual_os_agent.verification.models import (
+    SemanticStateExpectation,
+    VerificationContract,
+    VerificationResult,
+)
 
-__all__ = ["VerificationResult", "Verifier"]
-
+__all__ = [
+    "SemanticStateExpectation",
+    "VerificationContract",
+    "VerificationResult",
+    "Verifier",
+]
