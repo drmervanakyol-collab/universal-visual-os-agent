@@ -1,0 +1,20 @@
+[build-system]
+requires = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "universal-visual-os-agent"
+version = "0.1.0"
+description = "A safe, modular, Windows-first visual OS-agent skeleton"
+readme = "README.md"
+requires-python = ">=3.14"
+authors = [
+  { name = "Mervan" }
+]
+dependencies = []
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
