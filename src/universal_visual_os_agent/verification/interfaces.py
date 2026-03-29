@@ -4,13 +4,23 @@ from __future__ import annotations
 
 from typing import Protocol
 
-from universal_visual_os_agent.actions.models import ActionIntent
-from universal_visual_os_agent.verification.models import VerificationResult
+from universal_visual_os_agent.verification.models import (
+    SemanticStateTransition,
+    SemanticTransitionExpectation,
+    VerificationResult,
+)
 
 
-class Verifier(Protocol):
-    """Verification contract for simulated or future actions."""
+class SemanticTransitionVerifier(Protocol):
+    """Verification contract for semantic-state transitions."""
 
-    def verify(self, action: ActionIntent) -> VerificationResult:
-        """Check whether an intended state transition is satisfied."""
+    def verify(
+        self,
+        expectation: SemanticTransitionExpectation,
+        transition: SemanticStateTransition,
+    ) -> VerificationResult:
+        """Check whether an expected semantic transition is satisfied."""
 
+
+class Verifier(SemanticTransitionVerifier, Protocol):
+    """Backwards-compatible alias for the generic verifier contract."""

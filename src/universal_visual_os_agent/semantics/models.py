@@ -1,20 +1,11 @@
-"""Semantic candidate contracts."""
+"""Compatibility exports for semantic models."""
 
-from __future__ import annotations
+from universal_visual_os_agent.semantics.layout import SemanticLayoutTree, SemanticNode
+from universal_visual_os_agent.semantics.state import SemanticCandidate, SemanticStateSnapshot
 
-from dataclasses import dataclass
-
-from universal_visual_os_agent.geometry.models import NormalizedBBox
-
-
-@dataclass(slots=True, frozen=True, kw_only=True)
-class SemanticCandidate:
-    """Target candidate derived from a visual or logical UI signal."""
-
-    candidate_id: str
-    label: str
-    bounds: NormalizedBBox
-    visible: bool = True
-    enabled: bool = True
-    occluded: bool = False
-
+__all__ = [
+    "SemanticCandidate",
+    "SemanticLayoutTree",
+    "SemanticNode",
+    "SemanticStateSnapshot",
+]
