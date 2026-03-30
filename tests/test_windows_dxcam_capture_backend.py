@@ -9,6 +9,7 @@ from universal_visual_os_agent.integrations.windows import (
     RawWindowsCapture,
     WindowsCaptureBackendCapability,
     WindowsCaptureRequest,
+    WindowsCaptureRuntimeMode,
     WindowsCaptureTarget,
     WindowsDxcamCaptureBackend,
     WindowsObserveOnlyCaptureProvider,
@@ -193,7 +194,7 @@ def test_provider_prefers_dxcam_for_full_desktop_requests_when_available() -> No
     assert result.frame.metadata["dxcam_backend_used"] == "dxgi"
 
 
-def test_provider_reports_structured_dxcam_unavailability_and_falls_back_to_gdi() -> None:
+def test_provider_reports_structured_dxcam_unavailability_without_gdi_fallback_in_production() -> None:
     def loader():
         raise ModuleNotFoundError("No module named 'dxcam'")
 
@@ -213,16 +214,63 @@ def test_provider_reports_structured_dxcam_unavailability_and_falls_back_to_gdi(
 
     result = provider.capture_frame()
 
-    assert result.success is True
-    assert result.details["selected_backend_name"] == "gdi_bitblt"
+    assert result.success is False
+    assert result.error_code == "capture_backend_unavailable"
+    assert result.details["runtime_mode"] == WindowsCaptureRuntimeMode.production
+    assert result.details["selected_backend_name"] is None
+    assert result.details["available_backend_names"] == ()
+    assert result.details["capability_available_backend_names"] == ("gdi_bitblt",)
     candidates = result.details["backend_candidates"]
     assert candidates[0]["backend_name"] == "dxcam_desktop"
     assert candidates[0]["available"] is False
-    assert candidates[0]["reason"] == "DXcam is not installed."
+    assert candidates[0]["capability_reason"] == "DXcam is not installed."
+    assert candidates[1]["backend_name"] == "gdi_bitblt"
+    assert candidates[1]["available"] is True
+    assert candidates[1]["runtime_eligible"] is False
+    assert (
+        candidates[1]["skip_reason"]
+        == "Diagnostic-only backend is disabled in the production capture runtime."
+    )
+
+
+def test_provider_reports_structured_dxcam_unavailability_and_uses_gdi_in_diagnostic_mode() -> None:
+    def loader():
+        raise ModuleNotFoundError("No module named 'dxcam'")
+
+    provider = WindowsObserveOnlyCaptureProvider(
+        screen_metrics_provider=FakeScreenMetricsProvider(
+            ScreenMetricsQueryResult.ok(provider_name="FakeScreenMetricsProvider", metrics=_single_display_metrics())
+        ),
+        capture_backends=(
+            WindowsDxcamCaptureBackend(dxcam_module_loader=loader),
+            FakeCaptureBackend(
+                backend_name="gdi_bitblt",
+                capability=WindowsCaptureBackendCapability.available_backend(backend_name="gdi_bitblt"),
+                capture=_success_capture(backend_name="gdi_bitblt"),
+            ),
+        ),
+        runtime_mode=WindowsCaptureRuntimeMode.diagnostic,
+    )
+
+    result = provider.capture_frame()
+
+    assert result.success is True
+    assert result.details["runtime_mode"] == WindowsCaptureRuntimeMode.diagnostic
+    assert result.details["selected_backend_name"] == "gdi_bitblt"
     assert result.details["used_backend_name"] == "gdi_bitblt"
+    assert result.details["backend_fallback_used"] is False
+    candidates = result.details["backend_candidates"]
+    assert candidates[0]["backend_name"] == "dxcam_desktop"
+    assert candidates[0]["available"] is False
+    assert candidates[1]["backend_name"] == "gdi_bitblt"
+    assert candidates[1]["runtime_eligible"] is True
+    assert (
+        candidates[1]["selection_reason"]
+        == "Selected as the highest-priority diagnostic-compatible backend."
+    )
 
 
-def test_provider_falls_back_to_gdi_when_dxcam_capture_fails() -> None:
+def test_provider_does_not_fall_back_to_gdi_when_dxcam_capture_fails_in_production() -> None:
     module = FakeDxcamModule(
         behaviors={"dxgi": lambda: FakeDxcamCamera(width=640, height=480), "winrt": RuntimeError("unused")}
     )
@@ -242,7 +290,47 @@ def test_provider_falls_back_to_gdi_when_dxcam_capture_fails() -> None:
 
     result = provider.capture_frame()
 
+    assert result.success is False
+    assert result.error_code == "dxcam_grab_failed"
+    assert result.details["runtime_mode"] == WindowsCaptureRuntimeMode.production
+    assert result.details["selected_backend_name"] == "dxcam_desktop"
+    assert result.details["available_backend_names"] == ("dxcam_desktop",)
+    assert result.details["capability_available_backend_names"] == ("dxcam_desktop", "gdi_bitblt")
+    candidates = result.details["backend_candidates"]
+    assert candidates[1]["backend_name"] == "gdi_bitblt"
+    assert candidates[1]["runtime_eligible"] is False
+    assert (
+        candidates[1]["skip_reason"]
+        == "Diagnostic-only backend is disabled in the production capture runtime."
+    )
+    assert result.details["backend_attempt_count"] == 1
+    assert result.details["backend_attempts"][0]["backend_name"] == "dxcam_desktop"
+    assert result.details["backend_attempts"][0]["error_code"] == "dxcam_grab_failed"
+
+
+def test_provider_falls_back_to_gdi_when_dxcam_capture_fails_in_diagnostic_mode() -> None:
+    module = FakeDxcamModule(
+        behaviors={"dxgi": lambda: FakeDxcamCamera(width=640, height=480), "winrt": RuntimeError("unused")}
+    )
+    provider = WindowsObserveOnlyCaptureProvider(
+        screen_metrics_provider=FakeScreenMetricsProvider(
+            ScreenMetricsQueryResult.ok(provider_name="FakeScreenMetricsProvider", metrics=_single_display_metrics())
+        ),
+        capture_backends=(
+            RaisingGrabDxcamBackend(dxcam_module_loader=lambda: module),
+            FakeCaptureBackend(
+                backend_name="gdi_bitblt",
+                capability=WindowsCaptureBackendCapability.available_backend(backend_name="gdi_bitblt"),
+                capture=_success_capture(backend_name="gdi_bitblt"),
+            ),
+        ),
+        runtime_mode=WindowsCaptureRuntimeMode.diagnostic,
+    )
+
+    result = provider.capture_frame()
+
     assert result.success is True
+    assert result.details["runtime_mode"] == WindowsCaptureRuntimeMode.diagnostic
     assert result.details["selected_backend_name"] == "dxcam_desktop"
     assert result.details["used_backend_name"] == "gdi_bitblt"
     assert result.details["backend_fallback_used"] is True
