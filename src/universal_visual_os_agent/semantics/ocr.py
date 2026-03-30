@@ -10,6 +10,7 @@ from typing import TYPE_CHECKING, Mapping, Self
 from universal_visual_os_agent.geometry import NormalizedBBox
 from universal_visual_os_agent.perception import FrameImagePayload
 from universal_visual_os_agent.semantics.building import SemanticStateBuildResult
+from universal_visual_os_agent.semantics.ocr_enrichment import apply_ocr_semantic_enrichment
 from universal_visual_os_agent.semantics.preparation import (
     SemanticExtractionInput,
     SemanticExtractionPreparationResult,
@@ -259,19 +260,13 @@ class PreparedSemanticTextExtractionAdapter:
                 )
             text_regions = self._sanitize_text_regions(request, response)
             text_blocks = self._sanitize_text_blocks(text_regions, response)
-            enriched_snapshot = replace(
+            enriched_snapshot = apply_ocr_semantic_enrichment(
                 snapshot,
                 text_regions=text_regions,
                 text_blocks=text_blocks,
-                metadata={
-                    **dict(snapshot.metadata),
-                    "text_extraction_adapter_name": self.adapter_name,
-                    "text_extraction_scaffold": True,
-                    "text_extraction_backend_name": response.backend_name,
-                    "text_extraction_response_status": response.status.value,
-                    "text_region_ids": tuple(region.region_id for region in text_regions),
-                    "text_block_ids": tuple(block.text_block_id for block in text_blocks),
-                },
+                adapter_name=self.adapter_name,
+                backend_name=response.backend_name,
+                response_status=response.status.value,
             )
         except Exception as exc:  # noqa: BLE001 - adapter must remain failure-safe
             return TextExtractionResult.failure(
