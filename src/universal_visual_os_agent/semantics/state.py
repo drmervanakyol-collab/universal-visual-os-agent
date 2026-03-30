@@ -46,6 +46,17 @@ class SemanticLayoutRole(StrEnum):
     dialog_overlay = "dialog_overlay"
 
 
+class SemanticCandidateClass(StrEnum):
+    """Non-actionable heuristic classes for semantic candidate generation."""
+
+    button_like = "button_like"
+    input_like = "input_like"
+    tab_like = "tab_like"
+    close_like = "close_like"
+    popup_dismiss_like = "popup_dismiss_like"
+    interactive_region_like = "interactive_region_like"
+
+
 @dataclass(slots=True, frozen=True, kw_only=True)
 class SemanticRegionBlock:
     """A non-actionable analysis region derived from the observed frame."""
@@ -160,10 +171,12 @@ class SemanticCandidate:
     bounds: NormalizedBBox
     node_id: str | None = None
     role: str | None = None
+    candidate_class: SemanticCandidateClass | None = None
     confidence: float | None = None
     visible: bool = True
     enabled: bool = True
     occluded: bool = False
+    heuristic_explanations: tuple[str, ...] = ()
     metadata: Mapping[str, object] = field(default_factory=dict)
 
     def __post_init__(self) -> None:

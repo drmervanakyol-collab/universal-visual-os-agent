@@ -6,6 +6,9 @@ from typing import Protocol
 
 from universal_visual_os_agent.perception.models import CaptureResult
 from universal_visual_os_agent.semantics.building import SemanticStateBuildResult
+from universal_visual_os_agent.semantics.candidate_generation import (
+    CandidateGenerationResult,
+)
 from universal_visual_os_agent.semantics.layout_region_analysis import (
     LayoutRegionAnalysisResult,
 )
@@ -67,3 +70,10 @@ class SemanticLayoutEnricher(Protocol):
 
     def enrich(self, snapshot: SemanticStateSnapshot) -> SemanticLayoutEnrichmentResult:
         """Return a structured semantic layout enrichment result."""
+
+
+class CandidateGenerator(Protocol):
+    """Generate richer observe-only semantic candidates from enriched snapshots."""
+
+    def generate(self, snapshot: SemanticStateSnapshot) -> CandidateGenerationResult:
+        """Return a structured observe-only candidate generation result."""
