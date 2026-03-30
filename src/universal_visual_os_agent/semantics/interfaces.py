@@ -27,6 +27,9 @@ from universal_visual_os_agent.semantics.ocr import (
 from universal_visual_os_agent.semantics.preparation import (
     SemanticExtractionPreparationResult,
 )
+from universal_visual_os_agent.semantics.semantic_delta import (
+    SemanticDeltaResult,
+)
 from universal_visual_os_agent.semantics.semantic_layout_enrichment import (
     SemanticLayoutEnrichmentResult,
 )
@@ -103,3 +106,14 @@ class CandidateExposer(Protocol):
         options: CandidateExposureOptions | None = None,
     ) -> CandidateExposureResult:
         """Return a structured observe-only candidate exposure result."""
+
+
+class SemanticDeltaComparator(Protocol):
+    """Compare semantic snapshots into a structured observe-only delta."""
+
+    def compare(
+        self,
+        before: SemanticStateSnapshot | None,
+        after: SemanticStateSnapshot | None,
+    ) -> SemanticDeltaResult:
+        """Return a structured observe-only semantic delta result."""
