@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field, replace
 from datetime import datetime
 from enum import StrEnum
-from typing import Mapping, Self
+from typing import TYPE_CHECKING, Mapping, Self
 
 from universal_visual_os_agent.geometry import NormalizedBBox
 from universal_visual_os_agent.perception import FrameImagePayload
@@ -20,6 +20,9 @@ from universal_visual_os_agent.semantics.state import (
     SemanticTextRegion,
     SemanticTextStatus,
 )
+
+if TYPE_CHECKING:
+    from universal_visual_os_agent.semantics.interfaces import TextExtractionBackend
 
 
 @dataclass(slots=True, frozen=True, kw_only=True)
@@ -177,6 +180,9 @@ class PreparedSemanticTextExtractionAdapter:
 
     adapter_name = "PreparedSemanticTextExtractionAdapter"
 
+    def __init__(self, *, text_backend: TextExtractionBackend | None = None) -> None:
+        self._text_backend = text_backend
+
     def extract(
         self,
         preparation_result: SemanticExtractionPreparationResult,
@@ -239,18 +245,20 @@ class PreparedSemanticTextExtractionAdapter:
 
         try:
             request = self._build_request(extraction_input, snapshot)
-            text_regions = self._build_text_regions(request)
-            text_blocks = self._build_text_blocks(text_regions)
-            response = TextExtractionResponse(
-                status=TextExtractionResponseStatus.pending,
-                text_regions=text_regions,
-                text_blocks=text_blocks,
-                details={
-                    "observe_only": True,
-                    "ocr_backend_name": None,
-                    "placeholder_response": True,
-                },
-            )
+            response = self._run_backend_or_placeholder(request)
+            if response.status is TextExtractionResponseStatus.failed:
+                return TextExtractionResult.failure(
+                    adapter_name=self.adapter_name,
+                    error_code=response.error_code or "ocr_backend_failed",
+                    error_message=response.error_message or "OCR backend execution failed.",
+                    details={
+                        "frame_id": extraction_input.frame_id,
+                        "ocr_backend_name": response.backend_name,
+                        **dict(response.details),
+                    },
+                )
+            text_regions = self._sanitize_text_regions(request, response)
+            text_blocks = self._sanitize_text_blocks(text_regions, response)
             enriched_snapshot = replace(
                 snapshot,
                 text_regions=text_regions,
@@ -259,6 +267,8 @@ class PreparedSemanticTextExtractionAdapter:
                     **dict(snapshot.metadata),
                     "text_extraction_adapter_name": self.adapter_name,
                     "text_extraction_scaffold": True,
+                    "text_extraction_backend_name": response.backend_name,
+                    "text_extraction_response_status": response.status.value,
                     "text_region_ids": tuple(region.region_id for region in text_regions),
                     "text_block_ids": tuple(block.text_block_id for block in text_blocks),
                 },
@@ -286,6 +296,7 @@ class PreparedSemanticTextExtractionAdapter:
                 "region_count": len(text_regions),
                 "text_block_count": len(text_blocks),
                 "snapshot_id": enriched_snapshot.snapshot_id,
+                "ocr_backend_name": response.backend_name,
             },
         )
 
@@ -378,3 +389,81 @@ class PreparedSemanticTextExtractionAdapter:
             )
             for region in text_regions
         )
+
+    def _run_backend_or_placeholder(
+        self,
+        request: TextExtractionRequest,
+    ) -> TextExtractionResponse:
+        if self._text_backend is None:
+            text_regions = self._build_text_regions(request)
+            text_blocks = self._build_text_blocks(text_regions)
+            return TextExtractionResponse(
+                status=TextExtractionResponseStatus.pending,
+                text_regions=text_regions,
+                text_blocks=text_blocks,
+                details={
+                    "observe_only": True,
+                    "ocr_backend_name": None,
+                    "placeholder_response": True,
+                },
+            )
+        try:
+            return self._text_backend.run(request)
+        except Exception as exc:  # noqa: BLE001 - backend exceptions must stay structured
+            return TextExtractionResponse(
+                status=TextExtractionResponseStatus.failed,
+                backend_name=getattr(self._text_backend, "backend_name", None),
+                error_code="text_extraction_backend_exception",
+                error_message=str(exc),
+                details={"exception_type": type(exc).__name__},
+            )
+
+    def _sanitize_text_regions(
+        self,
+        request: TextExtractionRequest,
+        response: TextExtractionResponse,
+    ) -> tuple[SemanticTextRegion, ...]:
+        if len(response.text_regions) != len(request.regions):
+            raise ValueError("OCR backend returned an unexpected number of text regions.")
+        request_region_ids = {region.region_id for region in request.regions}
+        response_region_ids = {region.region_id for region in response.text_regions}
+        if response_region_ids != request_region_ids:
+            raise ValueError("OCR backend returned mismatched text region identifiers.")
+
+        return tuple(
+            replace(
+                region,
+                enabled=False,
+                metadata={
+                    **dict(region.metadata),
+                    "ocr_backend_name": response.backend_name,
+                    "observe_only": True,
+                    "analysis_only": True,
+                },
+            )
+            for region in response.text_regions
+        )
+
+    def _sanitize_text_blocks(
+        self,
+        text_regions: tuple[SemanticTextRegion, ...],
+        response: TextExtractionResponse,
+    ) -> tuple[SemanticTextBlock, ...]:
+        valid_region_ids = {region.region_id for region in text_regions}
+        text_blocks: list[SemanticTextBlock] = []
+        for block in response.text_blocks:
+            if block.region_id not in valid_region_ids:
+                raise ValueError("OCR backend returned a text block for an unknown region.")
+            text_blocks.append(
+                replace(
+                    block,
+                    enabled=False,
+                    metadata={
+                        **dict(block.metadata),
+                        "ocr_backend_name": response.backend_name,
+                        "observe_only": True,
+                        "analysis_only": True,
+                    },
+                )
+            )
+        return tuple(text_blocks)
