@@ -12,7 +12,12 @@ from universal_visual_os_agent.actions.models import (
     ActionTargetValidation,
 )
 from universal_visual_os_agent.semantics.state import SemanticCandidateClass
-from universal_visual_os_agent.verification.models import SemanticTransitionExpectation
+from universal_visual_os_agent.semantics.candidate_exposure import CandidateExposureView
+from universal_visual_os_agent.semantics.state import SemanticStateSnapshot
+from universal_visual_os_agent.verification.models import (
+    SemanticTransitionExpectation,
+    VerificationResult,
+)
 
 
 class ScenarioDefinitionStatus(StrEnum):
@@ -28,6 +33,25 @@ class ScenarioExecutionEligibility(StrEnum):
 
     dry_run_only = "dry_run_only"
     real_click_eligible = "real_click_eligible"
+
+
+class ScenarioStepStage(StrEnum):
+    """Ordered stage markers produced by the scenario loop."""
+
+    started = "started"
+    observed = "observed"
+    understood = "understood"
+    verified = "verified"
+    incomplete = "incomplete"
+    failed = "failed"
+
+
+class ScenarioRunStatus(StrEnum):
+    """Terminal status for one scenario-run attempt."""
+
+    completed = "completed"
+    incomplete = "incomplete"
+    failed = "failed"
 
 
 @dataclass(slots=True, frozen=True, kw_only=True)
@@ -214,6 +238,146 @@ class ScenarioDefinitionResult:
     ) -> Self:
         return cls(
             builder_name=builder_name,
+            success=False,
+            error_code=error_code,
+            error_message=error_message,
+            details={} if details is None else details,
+        )
+
+
+@dataclass(slots=True, frozen=True, kw_only=True)
+class ScenarioStepRun:
+    """Structured result for one non-executing observe-understand-verify step."""
+
+    step_id: str
+    summary: str
+    execution_eligibility: ScenarioExecutionEligibility
+    final_stage: ScenarioStepStage
+    stage_history: tuple[ScenarioStepStage, ...]
+    reason: str
+    observed_snapshot: SemanticStateSnapshot | None = None
+    exposure_view: CandidateExposureView | None = None
+    verification_result: VerificationResult | None = None
+    matched_candidate_ids: tuple[str, ...] = ()
+    signal_status: str = "absent"
+    observe_only: bool = True
+    non_executing: bool = True
+    live_execution_attempted: bool = False
+    metadata: Mapping[str, object] = field(default_factory=dict)
+
+    def __post_init__(self) -> None:
+        if not self.step_id:
+            raise ValueError("step_id must not be empty.")
+        if not self.summary:
+            raise ValueError("summary must not be empty.")
+        if not self.stage_history:
+            raise ValueError("stage_history must not be empty.")
+        if self.stage_history[0] is not ScenarioStepStage.started:
+            raise ValueError("stage_history must begin with started.")
+        if self.stage_history[-1] is not self.final_stage:
+            raise ValueError("stage_history must end with final_stage.")
+        if not self.reason:
+            raise ValueError("reason must not be empty.")
+        if self.signal_status not in {"available", "partial", "absent"}:
+            raise ValueError("signal_status must be available, partial, or absent.")
+        if not self.observe_only or not self.non_executing or self.live_execution_attempted:
+            raise ValueError("Scenario step runs must remain observe-only and non-executing.")
+
+
+@dataclass(slots=True, frozen=True, kw_only=True)
+class ScenarioRun:
+    """Structured result for one non-executing scenario loop."""
+
+    scenario_id: str
+    title: str
+    summary: str
+    status: ScenarioRunStatus
+    step_runs: tuple[ScenarioStepRun, ...]
+    verified_step_count: int
+    incomplete_step_count: int
+    failed_step_count: int
+    current_snapshot: SemanticStateSnapshot | None = None
+    initial_snapshot: SemanticStateSnapshot | None = None
+    signal_status: str = "absent"
+    observe_only: bool = True
+    non_executing: bool = True
+    live_execution_attempted: bool = False
+    metadata: Mapping[str, object] = field(default_factory=dict)
+
+    def __post_init__(self) -> None:
+        if not self.scenario_id:
+            raise ValueError("scenario_id must not be empty.")
+        if not self.title:
+            raise ValueError("title must not be empty.")
+        if not self.summary:
+            raise ValueError("summary must not be empty.")
+        if (
+            self.verified_step_count
+            + self.incomplete_step_count
+            + self.failed_step_count
+            != len(self.step_runs)
+        ):
+            raise ValueError("Step outcome counts must match len(step_runs).")
+        if self.signal_status not in {"available", "partial", "absent"}:
+            raise ValueError("signal_status must be available, partial, or absent.")
+        if not self.observe_only or not self.non_executing or self.live_execution_attempted:
+            raise ValueError("Scenario runs must remain observe-only and non-executing.")
+
+
+@dataclass(slots=True, frozen=True, kw_only=True)
+class ScenarioRunResult:
+    """Structured wrapper for one scenario-loop attempt."""
+
+    runner_name: str
+    success: bool
+    scenario_definition: ScenarioDefinition | None = None
+    scenario_run: ScenarioRun | None = None
+    error_code: str | None = None
+    error_message: str | None = None
+    details: Mapping[str, object] = field(default_factory=dict)
+
+    def __post_init__(self) -> None:
+        if not self.runner_name:
+            raise ValueError("runner_name must not be empty.")
+        if self.success and (self.scenario_definition is None or self.scenario_run is None):
+            raise ValueError(
+                "Successful scenario-run results must include scenario_definition and scenario_run."
+            )
+        if not self.success and self.error_code is None:
+            raise ValueError("Failed scenario-run results must include error_code.")
+        if self.success and (self.error_code is not None or self.error_message is not None):
+            raise ValueError("Successful scenario-run results must not include error details.")
+        if not self.success and self.scenario_run is not None:
+            raise ValueError("Failed scenario-run results must not include scenario_run.")
+
+    @classmethod
+    def ok(
+        cls,
+        *,
+        runner_name: str,
+        scenario_definition: ScenarioDefinition,
+        scenario_run: ScenarioRun,
+        details: Mapping[str, object] | None = None,
+    ) -> Self:
+        return cls(
+            runner_name=runner_name,
+            success=True,
+            scenario_definition=scenario_definition,
+            scenario_run=scenario_run,
+            details={} if details is None else details,
+        )
+
+    @classmethod
+    def failure(
+        cls,
+        *,
+        runner_name: str,
+        error_code: str,
+        error_message: str,
+        details: Mapping[str, object] | None = None,
+    ) -> Self:
+        return cls(
+            runner_name=runner_name,
             success=False,
             error_code=error_code,
             error_message=error_message,

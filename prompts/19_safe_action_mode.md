@@ -139,3 +139,84 @@ Important:
 - do not perform any click, keypress, or real OS action
 - do not make anything executable yet
 - keep the implementation tightly scoped to dry-run action handling
+
+-----faz3------
+
+Read `AGENTS.md`, `docs/SPEC.md`, and `docs/EXECPLAN.md`.
+
+Implement Phase 5C: real safe click prototype.
+
+Scope:
+- add only a minimal, tightly constrained real click prototype
+- do not add keyboard input
+- do not add text entry
+- do not add drag/drop
+- do not expand planning or policy beyond what is needed for this safe click prototype
+- keep everything safety-first
+
+Current pipeline to build on:
+- full-desktop DXcam capture
+- semantic preparation
+- semantic state building
+- semantic enrichment
+- OCR enrichment
+- geometric layout / region analysis
+- semantic layout enrichment
+- candidate generation
+- candidate scoring
+- safe candidate exposure
+- semantic delta / state comparison
+- goal-oriented verification
+- verification explanation / taxonomy
+- safe action-intent scaffolding
+- dry-run action engine
+
+Goals:
+- implement a minimal real click prototype for a very limited subset of candidates
+- require explicit safety gates before any real click can occur
+- preserve a clear separation between:
+  - dry-run only
+  - blocked
+  - real click allowed
+  - real click executed
+- keep the prototype deliberately narrow and conservative
+
+Required safety constraints:
+- allow real click only when all required safety gates pass
+- require explicit config/flag to enable real click mode
+- block if protected-context signals are present
+- block if target validation fails
+- block if candidate is incomplete, low-confidence, or not explicitly eligible
+- limit to a very small subset of candidate/action types
+- preserve structured failure/block reasons
+- keep kill switch / pause / resume compatibility intact
+
+Required work:
+- add minimal real click interfaces and implementation
+- define clean execution result models
+- support a single constrained click prototype path only
+- preserve explicit safe failure behavior when inputs are incomplete
+- keep the implementation modular and testable
+- do not add third-party runtime dependencies in this phase
+
+Tests to add/update:
+- blocked path when enable flag is off
+- blocked path when safety gates fail
+- blocked path for unsupported candidate/action types
+- successful simulated path remains intact
+- real-click prototype path is narrowly scoped and explicitly gated
+- no unhandled exception propagation
+
+Validation requirements:
+- run the pre-delivery self-debug loop
+- run compile/import/test validation
+- clearly separate:
+  - actually executed checks
+  - static reasoning only
+  - environment-specific failures
+
+Important:
+- this phase is a minimal real safe click prototype only
+- do not add keyboard input or text entry
+- do not broaden the scope into general execution
+- keep the implementation tightly scoped to one conservative click prototype path
