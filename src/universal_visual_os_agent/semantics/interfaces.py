@@ -9,6 +9,10 @@ from universal_visual_os_agent.semantics.building import SemanticStateBuildResul
 from universal_visual_os_agent.semantics.candidate_generation import (
     CandidateGenerationResult,
 )
+from universal_visual_os_agent.semantics.candidate_exposure import (
+    CandidateExposureOptions,
+    CandidateExposureResult,
+)
 from universal_visual_os_agent.semantics.candidate_scoring import (
     CandidateScoringResult,
 )
@@ -87,3 +91,15 @@ class CandidateScorer(Protocol):
 
     def score(self, snapshot: SemanticStateSnapshot) -> CandidateScoringResult:
         """Return a structured observe-only candidate scoring result."""
+
+
+class CandidateExposer(Protocol):
+    """Expose scored observe-only semantic candidates in a stable view."""
+
+    def expose(
+        self,
+        snapshot: SemanticStateSnapshot,
+        *,
+        options: CandidateExposureOptions | None = None,
+    ) -> CandidateExposureResult:
+        """Return a structured observe-only candidate exposure result."""
