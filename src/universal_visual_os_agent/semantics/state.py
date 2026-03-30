@@ -177,6 +177,8 @@ class SemanticCandidate:
     enabled: bool = True
     occluded: bool = False
     heuristic_explanations: tuple[str, ...] = ()
+    score_explanations: tuple[str, ...] = ()
+    score_factors: Mapping[str, float] = field(default_factory=dict)
     metadata: Mapping[str, object] = field(default_factory=dict)
 
     def __post_init__(self) -> None:

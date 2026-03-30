@@ -9,6 +9,9 @@ from universal_visual_os_agent.semantics.building import SemanticStateBuildResul
 from universal_visual_os_agent.semantics.candidate_generation import (
     CandidateGenerationResult,
 )
+from universal_visual_os_agent.semantics.candidate_scoring import (
+    CandidateScoringResult,
+)
 from universal_visual_os_agent.semantics.layout_region_analysis import (
     LayoutRegionAnalysisResult,
 )
@@ -77,3 +80,10 @@ class CandidateGenerator(Protocol):
 
     def generate(self, snapshot: SemanticStateSnapshot) -> CandidateGenerationResult:
         """Return a structured observe-only candidate generation result."""
+
+
+class CandidateScorer(Protocol):
+    """Score generated observe-only semantic candidates."""
+
+    def score(self, snapshot: SemanticStateSnapshot) -> CandidateScoringResult:
+        """Return a structured observe-only candidate scoring result."""

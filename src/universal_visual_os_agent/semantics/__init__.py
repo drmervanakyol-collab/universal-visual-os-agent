@@ -8,8 +8,13 @@ from universal_visual_os_agent.semantics.candidate_generation import (
     CandidateGenerationResult,
     ObserveOnlyCandidateGenerator,
 )
+from universal_visual_os_agent.semantics.candidate_scoring import (
+    CandidateScoringResult,
+    ObserveOnlyCandidateScorer,
+)
 from universal_visual_os_agent.semantics.interfaces import (
     CandidateGenerator,
+    CandidateScorer,
     LayoutRegionAnalyzer,
     SemanticExtractionInputAdapter,
     SemanticLayoutEnricher,
@@ -59,11 +64,14 @@ from universal_visual_os_agent.semantics.state import (
 __all__ = [
     "CandidateGenerationResult",
     "CandidateGenerator",
+    "CandidateScorer",
+    "CandidateScoringResult",
     "FullDesktopCaptureSemanticInputAdapter",
     "GeometricLayoutRegionAnalyzer",
     "LayoutRegionAnalysisResult",
     "LayoutRegionAnalyzer",
     "ObserveOnlyCandidateGenerator",
+    "ObserveOnlyCandidateScorer",
     "OcrAwareSemanticLayoutEnricher",
     "PreparedSemanticStateBuilder",
     "PreparedSemanticTextExtractionAdapter",
