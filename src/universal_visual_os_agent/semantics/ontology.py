@@ -26,6 +26,28 @@ class CandidateSelectionRiskLevel(StrEnum):
     high = "high"
 
 
+class CandidateResolverReadinessStatus(StrEnum):
+    """Deterministic readiness status for handing candidates to resolver workflows."""
+
+    ready = "ready"
+    partial = "partial"
+    conflicted = "conflicted"
+
+
+class CandidateResolverReadinessReason(StrEnum):
+    """Stable reason codes describing resolver-readiness state."""
+
+    missing_source_type = "missing_source_type"
+    missing_selection_risk_level = "missing_selection_risk_level"
+    missing_source_of_truth_priority = "missing_source_of_truth_priority"
+    missing_provenance = "missing_provenance"
+    handoff_metadata_partial = "handoff_metadata_partial"
+    high_selection_risk = "high_selection_risk"
+    disambiguation_needed = "disambiguation_needed"
+    requires_local_resolver = "requires_local_resolver"
+    source_conflict_present = "source_conflict_present"
+
+
 @dataclass(slots=True, frozen=True, kw_only=True)
 class CandidateProvenanceRecord:
     """Structured provenance entry for one candidate source contribution."""
@@ -53,6 +75,22 @@ class CandidateOntologyCarrier(Protocol):
     source_conflict_present: bool
     source_of_truth_priority: tuple[SemanticCandidateSourceType, ...]
     provenance: tuple[CandidateProvenanceRecord, ...]
+
+
+@dataclass(slots=True, frozen=True, kw_only=True)
+class CandidateResolverReadiness:
+    """Structured readiness evaluation for candidate-to-resolver handoff."""
+
+    status: CandidateResolverReadinessStatus
+    reason_codes: tuple[CandidateResolverReadinessReason, ...] = ()
+    ontology_completeness_status: str = "available"
+    handoff_completeness_status: str = "available"
+
+    def __post_init__(self) -> None:
+        if self.ontology_completeness_status not in {"available", "partial"}:
+            raise ValueError("ontology_completeness_status must be 'available' or 'partial'.")
+        if self.handoff_completeness_status not in {"available", "partial"}:
+            raise ValueError("handoff_completeness_status must be 'available' or 'partial'.")
 
 
 _SOURCE_PRIORITY_RANK = {
@@ -116,3 +154,58 @@ def provenance_source_types(
     """Return the unique source types present in deterministic provenance order."""
 
     return tuple(dict.fromkeys(record.source_type for record in normalize_provenance(provenance)))
+
+
+def evaluate_candidate_resolver_readiness(
+    candidate: CandidateOntologyCarrier,
+    *,
+    handoff_completeness_status: str | None = None,
+) -> CandidateResolverReadiness:
+    """Return a deterministic resolver-readiness view for one candidate."""
+
+    ontology_completeness_status = candidate_ontology_completeness_status(candidate)
+    normalized_handoff_status = _normalize_completeness_status(handoff_completeness_status)
+    if ontology_completeness_status != "available":
+        normalized_handoff_status = "partial"
+
+    reason_codes: list[CandidateResolverReadinessReason] = []
+    if candidate.source_type is None:
+        reason_codes.append(CandidateResolverReadinessReason.missing_source_type)
+    if candidate.selection_risk_level is None:
+        reason_codes.append(CandidateResolverReadinessReason.missing_selection_risk_level)
+    if not candidate.source_of_truth_priority:
+        reason_codes.append(CandidateResolverReadinessReason.missing_source_of_truth_priority)
+    if not candidate.provenance:
+        reason_codes.append(CandidateResolverReadinessReason.missing_provenance)
+    if handoff_completeness_status is not None and normalized_handoff_status != "available":
+        reason_codes.append(CandidateResolverReadinessReason.handoff_metadata_partial)
+    if candidate.selection_risk_level is CandidateSelectionRiskLevel.high:
+        reason_codes.append(CandidateResolverReadinessReason.high_selection_risk)
+    if candidate.disambiguation_needed:
+        reason_codes.append(CandidateResolverReadinessReason.disambiguation_needed)
+    if candidate.requires_local_resolver:
+        reason_codes.append(CandidateResolverReadinessReason.requires_local_resolver)
+    if candidate.source_conflict_present:
+        reason_codes.append(CandidateResolverReadinessReason.source_conflict_present)
+
+    if normalized_handoff_status != "available":
+        status = CandidateResolverReadinessStatus.partial
+    elif candidate.source_conflict_present:
+        status = CandidateResolverReadinessStatus.conflicted
+    else:
+        status = CandidateResolverReadinessStatus.ready
+
+    return CandidateResolverReadiness(
+        status=status,
+        reason_codes=tuple(dict.fromkeys(reason_codes)),
+        ontology_completeness_status=ontology_completeness_status,
+        handoff_completeness_status=normalized_handoff_status,
+    )
+
+
+def _normalize_completeness_status(value: str | None) -> str:
+    if value is None:
+        return "available"
+    if value in {"available", "partial"}:
+        return value
+    raise ValueError("handoff_completeness_status must be 'available' or 'partial' when provided.")

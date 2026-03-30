@@ -8,10 +8,13 @@ from typing import Mapping, Self
 
 from universal_visual_os_agent.semantics.candidate_exposure import ExposedCandidate
 from universal_visual_os_agent.semantics.ontology import (
+    CandidateResolverReadiness,
     CandidateProvenanceRecord,
     CandidateSelectionRiskLevel,
     SemanticCandidateSourceType,
     candidate_ontology_completeness_status,
+    evaluate_candidate_resolver_readiness,
+    provenance_source_types,
 )
 from universal_visual_os_agent.semantics.state import (
     SemanticCandidate,
@@ -161,6 +164,14 @@ class ObserveOnlySharedOntologyBinder:
         candidate: SemanticCandidate,
     ) -> SharedOntologyBindingResult:
         try:
+            completeness_status = _binding_completeness_status(
+                candidate_class=candidate.candidate_class,
+                candidate_completeness_status=candidate_ontology_completeness_status(candidate),
+            )
+            readiness = evaluate_candidate_resolver_readiness(
+                candidate,
+                handoff_completeness_status=completeness_status,
+            )
             binding = self._build_binding(
                 candidate_id=candidate.candidate_id,
                 candidate_label=candidate.label,
@@ -173,7 +184,8 @@ class ObserveOnlySharedOntologyBinder:
                 source_conflict_present=candidate.source_conflict_present,
                 source_of_truth_priority=candidate.source_of_truth_priority,
                 provenance=candidate.provenance,
-                completeness_status=candidate_ontology_completeness_status(candidate),
+                completeness_status=readiness.handoff_completeness_status,
+                readiness=readiness,
                 metadata=dict(candidate.metadata),
             )
         except Exception as exc:  # noqa: BLE001 - binder must remain failure-safe
@@ -194,11 +206,18 @@ class ObserveOnlySharedOntologyBinder:
         candidate: ExposedCandidate,
     ) -> SharedOntologyBindingResult:
         try:
-            completeness_status = (
-                "partial"
-                if candidate.completeness_status != "available"
-                or candidate_ontology_completeness_status(candidate) != "available"
-                else "available"
+            completeness_status = _binding_completeness_status(
+                candidate_class=candidate.candidate_class,
+                candidate_completeness_status=(
+                    "partial"
+                    if candidate.completeness_status != "available"
+                    or candidate_ontology_completeness_status(candidate) != "available"
+                    else "available"
+                ),
+            )
+            readiness = evaluate_candidate_resolver_readiness(
+                candidate,
+                handoff_completeness_status=completeness_status,
             )
             binding = self._build_binding(
                 candidate_id=candidate.candidate_id,
@@ -212,7 +231,8 @@ class ObserveOnlySharedOntologyBinder:
                 source_conflict_present=candidate.source_conflict_present,
                 source_of_truth_priority=candidate.source_of_truth_priority,
                 provenance=candidate.provenance,
-                completeness_status=completeness_status,
+                completeness_status=readiness.handoff_completeness_status,
+                readiness=readiness,
                 metadata=dict(candidate.metadata),
             )
         except Exception as exc:  # noqa: BLE001 - binder must remain failure-safe
@@ -243,17 +263,12 @@ class ObserveOnlySharedOntologyBinder:
         source_of_truth_priority: tuple[SemanticCandidateSourceType, ...],
         provenance: tuple[CandidateProvenanceRecord, ...],
         completeness_status: str,
+        readiness: CandidateResolverReadiness,
         metadata: Mapping[str, object],
     ) -> SharedCandidateOntologyBinding:
         shared_candidate_label = (
             None if candidate_class is None else _SHARED_CANDIDATE_LABELS.get(candidate_class)
         )
-        if shared_candidate_label is None:
-            completeness_status = "partial"
-        if source_type is None or selection_risk_level is None:
-            completeness_status = "partial"
-        if not source_of_truth_priority or not provenance:
-            completeness_status = "partial"
         return SharedCandidateOntologyBinding(
             binding_id=f"{candidate_id}:shared_ontology",
             candidate_id=candidate_id,
@@ -276,5 +291,50 @@ class ObserveOnlySharedOntologyBinder:
                 "shared_ai_ontology_label": (
                     None if shared_candidate_label is None else shared_candidate_label.value
                 ),
+                "candidate_source_type": None if source_type is None else source_type.value,
+                "candidate_selection_risk_level": (
+                    None if selection_risk_level is None else selection_risk_level.value
+                ),
+                "candidate_disambiguation_needed": disambiguation_needed,
+                "candidate_requires_local_resolver": requires_local_resolver,
+                "candidate_source_conflict_present": source_conflict_present,
+                "candidate_source_of_truth_priority": tuple(
+                    source_type.value for source_type in source_of_truth_priority
+                ),
+                "candidate_provenance": tuple(
+                    {
+                        "source_type": record.source_type.value,
+                        "source_id": record.source_id,
+                        "source_label": record.source_label,
+                        "confidence": record.confidence,
+                        "metadata": dict(record.metadata),
+                    }
+                    for record in provenance
+                ),
+                "candidate_provenance_source_types": tuple(
+                    source_type.value for source_type in provenance_source_types(provenance)
+                ),
+                "candidate_ontology_completeness_status": (
+                    readiness.ontology_completeness_status
+                ),
+                "candidate_resolver_handoff_completeness_status": (
+                    readiness.handoff_completeness_status
+                ),
+                "candidate_resolver_readiness_status": readiness.status.value,
+                "candidate_resolver_readiness_reason_codes": tuple(
+                    reason.value for reason in readiness.reason_codes
+                ),
             },
         )
+
+
+def _binding_completeness_status(
+    *,
+    candidate_class: SemanticCandidateClass | None,
+    candidate_completeness_status: str,
+) -> str:
+    if candidate_class is None:
+        return "partial"
+    if candidate_completeness_status != "available":
+        return "partial"
+    return "available"

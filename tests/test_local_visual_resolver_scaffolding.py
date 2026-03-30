@@ -69,9 +69,17 @@ def test_local_visual_resolver_builds_valid_request() -> None:
         entry.candidate_binding.candidate_id for entry in result.request.candidate_shortlist
     ) == shortlist_ids
     assert all(
+        entry.metadata["candidate_resolver_readiness_status"] in {"ready", "conflicted"}
+        for entry in result.request.candidate_shortlist
+    )
+    assert all(
         entry.crop_reference.snapshot_id == snapshot.snapshot_id
         for entry in result.request.candidate_shortlist
     )
+    assert result.request.metadata["resolver_readiness_status_counts"]
+    assert result.request.metadata["resolver_ready_candidate_ids"] or result.request.metadata[
+        "resolver_conflicted_candidate_ids"
+    ]
     assert (
         result.request.ambiguity_context.escalation_disposition
         is DeterministicEscalationDisposition.local_resolver_recommended
@@ -213,6 +221,23 @@ def test_local_visual_resolver_handles_partial_and_conflicting_input_safely() ->
     )
     assert partial_result.success is True
     assert partial_result.request is not None
+    conflicted_candidate = replace(
+        exposure_view.candidates[0],
+        source_conflict_present=True,
+        disambiguation_needed=True,
+        requires_local_resolver=True,
+    )
+    conflicted_exposure_view = replace(
+        exposure_view,
+        candidates=(conflicted_candidate,) + exposure_view.candidates[1:],
+    )
+    conflicted_result = scaffolder.build_request(
+        snapshot,
+        conflicted_exposure_view,
+        candidate_ids=(candidate.candidate_id,),
+        summary="Build a request with a conflicted but complete shortlist candidate.",
+        request_id="resolver-conflicted-1",
+    )
 
     shortlist_labels = {
         entry.candidate_binding.shared_candidate_label
@@ -234,6 +259,20 @@ def test_local_visual_resolver_handles_partial_and_conflicting_input_safely() ->
 
     assert partial_result.request.signal_status is AiArchitectureSignalStatus.partial
     assert partial_result.request.metadata["partial_candidate_ids"] == (candidate.candidate_id,)
+    assert partial_result.request.metadata["resolver_partial_candidate_ids"] == (
+        candidate.candidate_id,
+    )
+    assert partial_result.request.metadata["resolver_readiness_status_counts"] == (
+        ("conflicted", 0),
+        ("partial", 1),
+        ("ready", 0),
+    )
+    assert conflicted_result.success is True
+    assert conflicted_result.request is not None
+    assert conflicted_result.request.signal_status is AiArchitectureSignalStatus.available
+    assert conflicted_result.request.metadata["resolver_conflicted_candidate_ids"] == (
+        candidate.candidate_id,
+    )
     assert conflict_result.success is False
     assert conflict_result.error_code == "local_visual_resolver_request_label_conflict"
 

@@ -12,8 +12,10 @@ from universal_visual_os_agent.semantics.ontology import (
     CandidateProvenanceRecord,
     CandidateSelectionRiskLevel,
     SemanticCandidateSourceType,
+    evaluate_candidate_resolver_readiness,
     normalize_provenance,
     normalize_source_of_truth_priority,
+    provenance_source_types,
 )
 from universal_visual_os_agent.semantics.state import (
     SemanticCandidate,
@@ -221,6 +223,14 @@ class ObserveOnlyCandidateGenerator:
                 for candidate in artifacts.generated_candidates
                 if candidate.selection_risk_level is not None
             )
+            readiness_status_counts = Counter(
+                status
+                for candidate in artifacts.generated_candidates
+                if isinstance(
+                    status := candidate.metadata.get("candidate_resolver_readiness_status"),
+                    str,
+                )
+            )
             generated_snapshot = replace(
                 snapshot,
                 candidates=all_candidates,
@@ -234,6 +244,9 @@ class ObserveOnlyCandidateGenerator:
                     "generated_candidate_class_counts": tuple(sorted(class_counts.items())),
                     "generated_candidate_source_type_counts": tuple(sorted(source_type_counts.items())),
                     "generated_candidate_risk_level_counts": tuple(sorted(risk_level_counts.items())),
+                    "generated_candidate_resolver_readiness_status_counts": tuple(
+                        sorted(readiness_status_counts.items())
+                    ),
                     "candidate_generation_signal_status": artifacts.signal_status,
                     "candidate_generation_missing_semantic_role_region_ids": (
                         artifacts.missing_semantic_role_region_ids
@@ -262,6 +275,7 @@ class ObserveOnlyCandidateGenerator:
                 "class_counts": tuple(sorted(class_counts.items())),
                 "source_type_counts": tuple(sorted(source_type_counts.items())),
                 "risk_level_counts": tuple(sorted(risk_level_counts.items())),
+                "resolver_readiness_status_counts": tuple(sorted(readiness_status_counts.items())),
             },
         )
 
@@ -347,7 +361,7 @@ class ObserveOnlyCandidateGenerator:
             f"{region.region_id}:generated:{SemanticCandidateClass.interactive_region_like.value}",
             existing_candidate_ids,
         )
-        return SemanticCandidate(
+        candidate = SemanticCandidate(
             candidate_id=candidate_id,
             label=f"{region.label} Interactive Region",
             bounds=region.bounds,
@@ -398,6 +412,7 @@ class ObserveOnlyCandidateGenerator:
                 "heuristic_explanations": tuple(explanations),
             },
         )
+        return _with_candidate_resolver_readiness(candidate)
 
     def _build_text_block_candidates(
         self,
@@ -465,59 +480,58 @@ class ObserveOnlyCandidateGenerator:
             f"{block.text_block_id}:generated:{candidate_class.value}",
             existing_candidate_ids,
         )
-        return (
-            SemanticCandidate(
-                candidate_id=candidate_id,
-                label=block.extracted_text or block.label,
-                bounds=block.bounds,
-                node_id=f"{block.text_block_id}:node",
-                role=candidate_class.value,
+        candidate = SemanticCandidate(
+            candidate_id=candidate_id,
+            label=block.extracted_text or block.label,
+            bounds=block.bounds,
+            node_id=f"{block.text_block_id}:node",
+            role=candidate_class.value,
+            candidate_class=candidate_class,
+            confidence=_confidence_for(
                 candidate_class=candidate_class,
-                confidence=_confidence_for(
-                    candidate_class=candidate_class,
-                    source_confidences=(block.confidence, region.confidence),
-                    signal_status=_signal_status_for_region(region),
-                ),
-                source_type=source_type,
-                selection_risk_level=selection_risk_level,
-                disambiguation_needed=disambiguation_needed,
-                requires_local_resolver=requires_local_resolver,
-                source_conflict_present=source_conflict_present,
-                source_of_truth_priority=source_of_truth_priority,
-                provenance=provenance,
-                visible=block.visible,
-                enabled=False,
-                heuristic_explanations=tuple(explanations),
-                metadata={
-                    **dict(block.metadata),
-                    "semantic_origin": "candidate_generation",
-                    "candidate_generator_name": self.generator_name,
-                    "candidate_class": candidate_class.value,
-                    "source_layout_region_id": region.region_id,
-                    "source_text_region_id": block.region_id,
-                    "source_text_block_id": block.text_block_id,
-                    "semantic_layout_role": (
-                        None if region.semantic_role is None else region.semantic_role.value
-                    ),
-                    "candidate_source_type": source_type.value,
-                    "candidate_selection_risk_level": selection_risk_level.value,
-                    "candidate_disambiguation_needed": disambiguation_needed,
-                    "candidate_requires_local_resolver": requires_local_resolver,
-                    "candidate_source_conflict_present": source_conflict_present,
-                    "candidate_source_of_truth_priority": tuple(
-                        source.value for source in source_of_truth_priority
-                    ),
-                    "candidate_provenance": _provenance_metadata(provenance),
-                    "observe_only": True,
-                    "analysis_only": True,
-                    "non_actionable_candidate": True,
-                    "non_actionable_reason": (
-                        "Phase 3A generated candidates are hypotheses only and never actionable."
-                    ),
-                    "heuristic_explanations": tuple(explanations),
-                },
+                source_confidences=(block.confidence, region.confidence),
+                signal_status=_signal_status_for_region(region),
             ),
+            source_type=source_type,
+            selection_risk_level=selection_risk_level,
+            disambiguation_needed=disambiguation_needed,
+            requires_local_resolver=requires_local_resolver,
+            source_conflict_present=source_conflict_present,
+            source_of_truth_priority=source_of_truth_priority,
+            provenance=provenance,
+            visible=block.visible,
+            enabled=False,
+            heuristic_explanations=tuple(explanations),
+            metadata={
+                **dict(block.metadata),
+                "semantic_origin": "candidate_generation",
+                "candidate_generator_name": self.generator_name,
+                "candidate_class": candidate_class.value,
+                "source_layout_region_id": region.region_id,
+                "source_text_region_id": block.region_id,
+                "source_text_block_id": block.text_block_id,
+                "semantic_layout_role": (
+                    None if region.semantic_role is None else region.semantic_role.value
+                ),
+                "candidate_source_type": source_type.value,
+                "candidate_selection_risk_level": selection_risk_level.value,
+                "candidate_disambiguation_needed": disambiguation_needed,
+                "candidate_requires_local_resolver": requires_local_resolver,
+                "candidate_source_conflict_present": source_conflict_present,
+                "candidate_source_of_truth_priority": tuple(
+                    source.value for source in source_of_truth_priority
+                ),
+                "candidate_provenance": _provenance_metadata(provenance),
+                "observe_only": True,
+                "analysis_only": True,
+                "non_actionable_candidate": True,
+                "non_actionable_reason": (
+                    "Phase 3A generated candidates are hypotheses only and never actionable."
+                ),
+                "heuristic_explanations": tuple(explanations),
+            },
         )
+        return (_with_candidate_resolver_readiness(candidate),)
 
     def _build_navigation_tab_candidates(
         self,
@@ -623,7 +637,7 @@ class ObserveOnlyCandidateGenerator:
                     "heuristic_explanations": explanations,
                 },
             )
-            candidates.append(candidate)
+            candidates.append(_with_candidate_resolver_readiness(candidate))
         return tuple(candidates)
 
 
@@ -907,6 +921,27 @@ def _provenance_metadata(
             "metadata": dict(record.metadata),
         }
         for record in provenance
+    )
+
+
+def _with_candidate_resolver_readiness(candidate: SemanticCandidate) -> SemanticCandidate:
+    readiness = evaluate_candidate_resolver_readiness(candidate)
+    return replace(
+        candidate,
+        metadata={
+            **dict(candidate.metadata),
+            "candidate_resolver_readiness_status": readiness.status.value,
+            "candidate_resolver_readiness_reason_codes": tuple(
+                reason.value for reason in readiness.reason_codes
+            ),
+            "candidate_ontology_completeness_status": readiness.ontology_completeness_status,
+            "candidate_resolver_handoff_completeness_status": (
+                readiness.handoff_completeness_status
+            ),
+            "candidate_provenance_source_types": tuple(
+                source_type.value for source_type in provenance_source_types(candidate.provenance)
+            ),
+        },
     )
 
 

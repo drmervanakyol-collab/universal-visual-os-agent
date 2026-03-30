@@ -11,6 +11,8 @@ from universal_visual_os_agent.semantics.ontology import (
     CandidateSelectionRiskLevel,
     SemanticCandidateSourceType,
     candidate_ontology_completeness_status,
+    evaluate_candidate_resolver_readiness,
+    provenance_source_types,
 )
 from universal_visual_os_agent.semantics.state import (
     SemanticCandidate,
@@ -207,6 +209,9 @@ class _ExposureArtifacts:
     missing_source_priority_candidate_ids: tuple[str, ...] = ()
     missing_provenance_candidate_ids: tuple[str, ...] = ()
     unsafe_source_candidate_ids: tuple[str, ...] = ()
+    resolver_ready_candidate_ids: tuple[str, ...] = ()
+    resolver_partial_candidate_ids: tuple[str, ...] = ()
+    resolver_conflicted_candidate_ids: tuple[str, ...] = ()
     scoring_metadata_incomplete: bool = False
 
     @property
@@ -344,6 +349,18 @@ class ObserveOnlyCandidateExposer:
                         for candidate in artifacts.exposed_candidates
                         if candidate.source_conflict_present
                     ),
+                    "resolver_readiness_status_counts": tuple(
+                        sorted(
+                            (
+                                ("conflicted", len(artifacts.resolver_conflicted_candidate_ids)),
+                                ("partial", len(artifacts.resolver_partial_candidate_ids)),
+                                ("ready", len(artifacts.resolver_ready_candidate_ids)),
+                            )
+                        )
+                    ),
+                    "resolver_ready_candidate_ids": artifacts.resolver_ready_candidate_ids,
+                    "resolver_partial_candidate_ids": artifacts.resolver_partial_candidate_ids,
+                    "resolver_conflicted_candidate_ids": artifacts.resolver_conflicted_candidate_ids,
                 },
             )
         except Exception as exc:  # noqa: BLE001 - exposure must remain failure-safe
@@ -386,6 +403,9 @@ class ObserveOnlyCandidateExposer:
         missing_source_priority_candidate_ids: list[str] = []
         missing_provenance_candidate_ids: list[str] = []
         unsafe_source_candidate_ids: list[str] = []
+        resolver_ready_candidate_ids: list[str] = []
+        resolver_partial_candidate_ids: list[str] = []
+        resolver_conflicted_candidate_ids: list[str] = []
 
         staged_candidates: list[ExposedCandidate] = []
         filtered_out_candidate_ids: list[str] = []
@@ -437,6 +457,16 @@ class ObserveOnlyCandidateExposer:
                 source_layout_region_id=source_layout_region_id,
                 layout_region_ids=layout_region_ids,
             )
+            readiness = evaluate_candidate_resolver_readiness(
+                candidate,
+                handoff_completeness_status=completeness_status,
+            )
+            if readiness.status.value == "ready":
+                resolver_ready_candidate_ids.append(candidate.candidate_id)
+            elif readiness.status.value == "partial":
+                resolver_partial_candidate_ids.append(candidate.candidate_id)
+            else:
+                resolver_conflicted_candidate_ids.append(candidate.candidate_id)
             staged_candidates.append(
                 ExposedCandidate(
                     candidate_id=candidate.candidate_id,
@@ -499,6 +529,20 @@ class ObserveOnlyCandidateExposer:
                                 "metadata": dict(record.metadata),
                             }
                             for record in candidate.provenance
+                        ),
+                        "candidate_provenance_source_types": tuple(
+                            source_type.value
+                            for source_type in provenance_source_types(candidate.provenance)
+                        ),
+                        "candidate_resolver_readiness_status": readiness.status.value,
+                        "candidate_resolver_readiness_reason_codes": tuple(
+                            reason.value for reason in readiness.reason_codes
+                        ),
+                        "candidate_ontology_completeness_status": (
+                            readiness.ontology_completeness_status
+                        ),
+                        "candidate_resolver_handoff_completeness_status": (
+                            readiness.handoff_completeness_status
                         ),
                         "observe_only": True,
                         "analysis_only": True,
@@ -568,6 +612,11 @@ class ObserveOnlyCandidateExposer:
             ),
             missing_provenance_candidate_ids=tuple(sorted(set(missing_provenance_candidate_ids))),
             unsafe_source_candidate_ids=tuple(sorted(set(unsafe_source_candidate_ids))),
+            resolver_ready_candidate_ids=tuple(sorted(set(resolver_ready_candidate_ids))),
+            resolver_partial_candidate_ids=tuple(sorted(set(resolver_partial_candidate_ids))),
+            resolver_conflicted_candidate_ids=tuple(
+                sorted(set(resolver_conflicted_candidate_ids))
+            ),
             scoring_metadata_incomplete=scoring_metadata_incomplete,
         )
 

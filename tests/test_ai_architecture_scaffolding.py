@@ -54,6 +54,11 @@ def test_shared_ontology_binder_maps_exposed_candidate_consistently() -> None:
         SharedTargetLabel.candidate_center,
         SharedTargetLabel.candidate_point,
     )
+    assert result.binding.metadata["candidate_resolver_readiness_status"] in {
+        "ready",
+        "conflicted",
+    }
+    assert result.binding.metadata["candidate_provenance_source_types"]
     assert result.binding.observe_only is True
     assert result.binding.read_only is True
     assert result.binding.non_executing is True
@@ -181,6 +186,12 @@ def test_contract_builders_handle_incomplete_candidate_metadata_safely() -> None
     assert resolver_result.request_contract is not None
     assert resolver_result.request_contract.signal_status is AiArchitectureSignalStatus.partial
     assert resolver_result.request_contract.target_candidate_binding.completeness_status == "partial"
+    assert (
+        resolver_result.request_contract.target_candidate_binding.metadata[
+            "candidate_resolver_readiness_status"
+        ]
+        == "partial"
+    )
 
 
 def test_planner_response_binding_rejects_invalid_candidate_reference_safely() -> None:

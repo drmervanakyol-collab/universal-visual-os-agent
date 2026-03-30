@@ -25,7 +25,10 @@ from universal_visual_os_agent.semantics.candidate_exposure import (
     CandidateExposureView,
     ExposedCandidate,
 )
-from universal_visual_os_agent.semantics.ontology import CandidateSelectionRiskLevel
+from universal_visual_os_agent.semantics.ontology import (
+    CandidateSelectionRiskLevel,
+    evaluate_candidate_resolver_readiness,
+)
 from universal_visual_os_agent.semantics.state import SemanticCandidate, SemanticStateSnapshot
 
 
@@ -422,6 +425,8 @@ class ObserveOnlyLocalVisualResolverScaffolder:
 
             shortlist_entries: list[LocalVisualResolverShortlistEntry] = []
             partial_candidate_ids: list[str] = []
+            resolver_ready_candidate_ids: list[str] = []
+            resolver_conflicted_candidate_ids: list[str] = []
             shortlist_labels: list[SharedCandidateLabel] = []
             for rank, candidate_id in enumerate(shortlist_candidate_ids, start=1):
                 exposed_candidate = _find_exposed_candidate(exposure_view, candidate_id)
@@ -455,8 +460,15 @@ class ObserveOnlyLocalVisualResolverScaffolder:
                     rank=rank,
                 )
                 shortlist_entries.append(entry)
+                readiness_status = entry.metadata.get("candidate_resolver_readiness_status")
                 if entry.completeness_status != "available":
                     partial_candidate_ids.append(candidate_id)
+                elif readiness_status == "ready":
+                    resolver_ready_candidate_ids.append(candidate_id)
+                elif readiness_status == "conflicted":
+                    resolver_conflicted_candidate_ids.append(candidate_id)
+                else:
+                    resolver_ready_candidate_ids.append(candidate_id)
                 if entry.candidate_binding.shared_candidate_label is not None:
                     shortlist_labels.append(entry.candidate_binding.shared_candidate_label)
 
@@ -497,6 +509,20 @@ class ObserveOnlyLocalVisualResolverScaffolder:
                 metadata={
                     "shortlist_candidate_ids": shortlist_candidate_ids,
                     "partial_candidate_ids": tuple(partial_candidate_ids),
+                    "resolver_partial_candidate_ids": tuple(partial_candidate_ids),
+                    "resolver_ready_candidate_ids": tuple(resolver_ready_candidate_ids),
+                    "resolver_conflicted_candidate_ids": tuple(
+                        resolver_conflicted_candidate_ids
+                    ),
+                    "resolver_readiness_status_counts": tuple(
+                        sorted(
+                            (
+                                ("conflicted", len(resolver_conflicted_candidate_ids)),
+                                ("partial", len(partial_candidate_ids)),
+                                ("ready", len(resolver_ready_candidate_ids)),
+                            )
+                        )
+                    ),
                     "shortlist_count": len(shortlist_entries),
                     "expected_target_label": expected_target_label.value,
                     "allowed_candidate_labels": tuple(
@@ -717,17 +743,68 @@ class ObserveOnlyLocalVisualResolverScaffolder:
             )
             else "available"
         )
+        readiness = evaluate_candidate_resolver_readiness(
+            binding_result.binding,
+            handoff_completeness_status=completeness_status,
+        )
         return LocalVisualResolverShortlistEntry(
             candidate_binding=binding_result.binding,
             crop_reference=crop_reference,
             rank=rank,
             visible=exposed_candidate.visible,
             score=exposed_candidate.score,
-            completeness_status=completeness_status,
+            completeness_status=readiness.handoff_completeness_status,
             metadata={
                 **dict(exposed_candidate.metadata),
                 "semantic_candidate_role": semantic_candidate.role,
                 "semantic_candidate_visible": semantic_candidate.visible,
+                "candidate_source_type": (
+                    None
+                    if binding_result.binding.source_type is None
+                    else binding_result.binding.source_type.value
+                ),
+                "candidate_selection_risk_level": (
+                    None
+                    if binding_result.binding.selection_risk_level is None
+                    else binding_result.binding.selection_risk_level.value
+                ),
+                "candidate_disambiguation_needed": (
+                    binding_result.binding.disambiguation_needed
+                ),
+                "candidate_requires_local_resolver": (
+                    binding_result.binding.requires_local_resolver
+                ),
+                "candidate_source_conflict_present": (
+                    binding_result.binding.source_conflict_present
+                ),
+                "candidate_source_of_truth_priority": tuple(
+                    source_type.value
+                    for source_type in binding_result.binding.source_of_truth_priority
+                ),
+                "candidate_provenance": tuple(
+                    {
+                        "source_type": record.source_type.value,
+                        "source_id": record.source_id,
+                        "source_label": record.source_label,
+                        "confidence": record.confidence,
+                        "metadata": dict(record.metadata),
+                    }
+                    for record in binding_result.binding.provenance
+                ),
+                "candidate_provenance_source_types": binding_result.binding.metadata.get(
+                    "candidate_provenance_source_types",
+                    (),
+                ),
+                "candidate_ontology_completeness_status": (
+                    readiness.ontology_completeness_status
+                ),
+                "candidate_resolver_handoff_completeness_status": (
+                    readiness.handoff_completeness_status
+                ),
+                "candidate_resolver_readiness_status": readiness.status.value,
+                "candidate_resolver_readiness_reason_codes": tuple(
+                    reason.value for reason in readiness.reason_codes
+                ),
             },
         )
 
@@ -771,6 +848,54 @@ def _build_ambiguity_context(
         metadata={
             "shortlist_candidate_ids": tuple(
                 entry.candidate_binding.candidate_id for entry in shortlist_entries
+            ),
+            "resolver_ready_candidate_ids": tuple(
+                entry.candidate_binding.candidate_id
+                for entry in shortlist_entries
+                if entry.metadata.get("candidate_resolver_readiness_status") == "ready"
+            ),
+            "resolver_partial_candidate_ids": tuple(
+                entry.candidate_binding.candidate_id
+                for entry in shortlist_entries
+                if entry.metadata.get("candidate_resolver_readiness_status") == "partial"
+            ),
+            "resolver_conflicted_candidate_ids": tuple(
+                entry.candidate_binding.candidate_id
+                for entry in shortlist_entries
+                if entry.metadata.get("candidate_resolver_readiness_status") == "conflicted"
+            ),
+            "resolver_readiness_status_counts": tuple(
+                sorted(
+                    (
+                        (
+                            "conflicted",
+                            sum(
+                                1
+                                for entry in shortlist_entries
+                                if entry.metadata.get("candidate_resolver_readiness_status")
+                                == "conflicted"
+                            ),
+                        ),
+                        (
+                            "partial",
+                            sum(
+                                1
+                                for entry in shortlist_entries
+                                if entry.metadata.get("candidate_resolver_readiness_status")
+                                == "partial"
+                            ),
+                        ),
+                        (
+                            "ready",
+                            sum(
+                                1
+                                for entry in shortlist_entries
+                                if entry.metadata.get("candidate_resolver_readiness_status")
+                                == "ready"
+                            ),
+                        ),
+                    )
+                )
             ),
         },
     )

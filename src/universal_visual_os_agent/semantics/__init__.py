@@ -21,8 +21,12 @@ _EXPORT_MODULES = {
     ".ontology": (
         "CandidateOntologyCarrier",
         "CandidateProvenanceRecord",
+        "CandidateResolverReadiness",
+        "CandidateResolverReadinessReason",
+        "CandidateResolverReadinessStatus",
         "CandidateSelectionRiskLevel",
         "SemanticCandidateSourceType",
+        "evaluate_candidate_resolver_readiness",
     ),
     ".candidate_exposure": (
         "CandidateExposureOptions",
@@ -163,8 +167,12 @@ if TYPE_CHECKING:
     from .ontology import (
         CandidateOntologyCarrier,
         CandidateProvenanceRecord,
+        CandidateResolverReadiness,
+        CandidateResolverReadinessReason,
+        CandidateResolverReadinessStatus,
         CandidateSelectionRiskLevel,
         SemanticCandidateSourceType,
+        evaluate_candidate_resolver_readiness,
     )
     from .preparation import (
         FullDesktopCaptureSemanticInputAdapter,

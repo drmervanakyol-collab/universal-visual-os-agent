@@ -16,6 +16,8 @@ from universal_visual_os_agent.semantics import (
 )
 from universal_visual_os_agent.semantics.ontology import (
     CandidateProvenanceRecord,
+    CandidateResolverReadinessStatus,
+    evaluate_candidate_resolver_readiness,
     normalize_provenance,
 )
 
@@ -47,6 +49,7 @@ def test_generated_candidates_expose_deterministic_source_ontology() -> None:
 
     assert snapshot.metadata["generated_candidate_source_type_counts"]
     assert snapshot.metadata["generated_candidate_risk_level_counts"]
+    assert snapshot.metadata["generated_candidate_resolver_readiness_status_counts"]
     for candidate in _generated_candidates(snapshot):
         assert candidate.source_type is not None
         assert candidate.selection_risk_level is not None
@@ -78,6 +81,18 @@ def test_generated_candidates_expose_deterministic_source_ontology() -> None:
                 "metadata": dict(record.metadata),
             }
             for record in candidate.provenance
+        )
+        readiness = evaluate_candidate_resolver_readiness(candidate)
+        assert candidate.metadata["candidate_resolver_readiness_status"] == readiness.status.value
+        assert candidate.metadata["candidate_resolver_readiness_reason_codes"] == tuple(
+            reason.value for reason in readiness.reason_codes
+        )
+        assert candidate.metadata["candidate_ontology_completeness_status"] == "available"
+        assert candidate.metadata["candidate_resolver_handoff_completeness_status"] == "available"
+        assert candidate.metadata["candidate_provenance_source_types"] == tuple(
+            source_type.value for source_type in dict.fromkeys(
+                record.source_type for record in candidate.provenance
+            )
         )
         if candidate.metadata["source_text_block_id"] is None:
             assert candidate.source_type is SemanticCandidateSourceType.layout
@@ -123,6 +138,22 @@ def test_candidate_exposure_preserves_source_and_risk_metadata() -> None:
             == source_candidate.selection_risk_level.value
         )
         assert exposed_candidate.completeness_status == "available"
+        readiness = evaluate_candidate_resolver_readiness(
+            exposed_candidate,
+            handoff_completeness_status=exposed_candidate.completeness_status,
+        )
+        assert exposed_candidate.metadata["candidate_resolver_readiness_status"] == (
+            readiness.status.value
+        )
+        assert exposed_candidate.metadata["candidate_resolver_readiness_reason_codes"] == tuple(
+            reason.value for reason in readiness.reason_codes
+        )
+        assert exposed_candidate.metadata["candidate_provenance_source_types"] == tuple(
+            source_type.value for source_type in dict.fromkeys(
+                record.source_type for record in exposed_candidate.provenance
+            )
+        )
+    assert exposure_view.metadata["resolver_readiness_status_counts"]
 
 
 def test_candidate_exposure_handles_incomplete_source_metadata_safely() -> None:
@@ -175,8 +206,38 @@ def test_candidate_exposure_handles_incomplete_source_metadata_safely() -> None:
     assert broken_candidate.candidate_id in exposure_view.metadata["missing_selection_risk_candidate_ids"]
     assert broken_candidate.candidate_id in exposure_view.metadata["missing_source_priority_candidate_ids"]
     assert broken_candidate.candidate_id in exposure_view.metadata["missing_provenance_candidate_ids"]
+    assert broken_candidate.candidate_id in exposure_view.metadata["resolver_partial_candidate_ids"]
     assert exposed_candidate.completeness_status == "partial"
+    assert exposed_candidate.metadata["candidate_resolver_readiness_status"] == "partial"
+    assert "missing_source_type" in exposed_candidate.metadata["candidate_resolver_readiness_reason_codes"]
+    assert "missing_provenance" in exposed_candidate.metadata["candidate_resolver_readiness_reason_codes"]
     assert exposed_candidate.actionable is False
+
+
+def test_candidate_resolver_readiness_distinguishes_conflicted_and_partial_states() -> None:
+    snapshot = _generated_snapshot()
+    conflicted_candidate = next(
+        candidate for candidate in _generated_candidates(snapshot) if candidate.source_conflict_present
+    )
+
+    conflicted_readiness = evaluate_candidate_resolver_readiness(conflicted_candidate)
+    partial_readiness = evaluate_candidate_resolver_readiness(
+        replace(
+            conflicted_candidate,
+            source_type=None,
+            source_of_truth_priority=(),
+            provenance=(),
+        )
+    )
+
+    assert conflicted_readiness.status is CandidateResolverReadinessStatus.conflicted
+    assert "source_conflict_present" in tuple(
+        reason.value for reason in conflicted_readiness.reason_codes
+    )
+    assert partial_readiness.status is CandidateResolverReadinessStatus.partial
+    assert "missing_source_type" in tuple(
+        reason.value for reason in partial_readiness.reason_codes
+    )
 
 
 def test_semantic_delta_freezes_candidate_provenance_as_structured_mappings() -> None:
