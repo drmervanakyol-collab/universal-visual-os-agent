@@ -1,6 +1,19 @@
 """Action contracts."""
 
-from universal_visual_os_agent.actions.interfaces import ActionExecutor, ActionIntentScaffolder
+from universal_visual_os_agent.actions.dry_run import (
+    DryRunActionBatchResult,
+    DryRunActionCheckOutcome,
+    DryRunActionDisposition,
+    DryRunActionEvaluation,
+    DryRunActionEvaluationResult,
+    DryRunActionEvaluationView,
+    ObserveOnlyDryRunActionEngine,
+)
+from universal_visual_os_agent.actions.interfaces import (
+    ActionExecutor,
+    ActionIntentScaffolder,
+    DryRunActionEngine,
+)
 from universal_visual_os_agent.actions.models import (
     ActionIntent,
     ActionIntentReasonCode,
@@ -30,5 +43,13 @@ __all__ = [
     "ActionResult",
     "ActionSafetyGate",
     "ActionTargetValidation",
+    "DryRunActionBatchResult",
+    "DryRunActionCheckOutcome",
+    "DryRunActionDisposition",
+    "DryRunActionEngine",
+    "DryRunActionEvaluation",
+    "DryRunActionEvaluationResult",
+    "DryRunActionEvaluationView",
     "ObserveOnlyActionIntentScaffolder",
+    "ObserveOnlyDryRunActionEngine",
 ]
