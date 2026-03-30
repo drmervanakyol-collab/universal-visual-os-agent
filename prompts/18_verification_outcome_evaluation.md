@@ -130,3 +130,74 @@ Important:
 - do not make anything actionable
 - do not add click/selection logic
 - keep the implementation tightly scoped to verification logic built on semantic delta
+
+-----faz3-----
+
+Read `AGENTS.md`, `docs/SPEC.md`, and `docs/EXECPLAN.md`.
+
+Implement Phase 4C: verification explanation and failure taxonomy.
+
+Scope:
+- do not add live input
+- do not add action execution
+- do not expand planning or policy
+- work only on explanation, classification, and failure taxonomy for the existing verification layer
+- keep everything strictly observe-only and read-only
+
+Current pipeline to build on:
+- full-desktop DXcam capture
+- semantic preparation
+- semantic state building
+- semantic enrichment
+- OCR enrichment
+- geometric layout / region analysis
+- semantic layout enrichment
+- candidate generation
+- candidate scoring
+- safe candidate exposure
+- semantic delta / state comparison
+- goal-oriented verification
+
+Goals:
+- add a structured explanation layer for verification outcomes
+- classify verification failures and unknown outcomes into a clear taxonomy
+- provide stable reason categories such as:
+  - missing_input
+  - partial_input
+  - expected_change_not_found
+  - unexpected_change_detected
+  - score_change_not_satisfied
+  - metadata_expectation_not_met
+  - ambiguous_result
+- preserve explicit safe behavior when inputs are incomplete
+- improve downstream usefulness without adding planning or action logic
+
+Required work:
+- add verification explanation / taxonomy interfaces and implementation
+- define clean explanation and taxonomy result models
+- enrich existing verification results with structured explanation categories and summaries
+- keep the implementation modular and testable
+- do not add third-party runtime dependencies in this phase
+
+Tests to add/update:
+- successful verification explanation path
+- failed verification explanation path
+- unknown / partial-input explanation path
+- deterministic taxonomy output where useful
+- no unhandled exception propagation
+- preservation of observe-only semantics
+
+Validation requirements:
+- run the pre-delivery self-debug loop
+- run compile/import/test validation
+- include one read-only runtime smoke test if possible
+- clearly separate:
+  - actually executed checks
+  - static reasoning only
+  - environment-specific failures
+
+Important:
+- this phase is verification explanation and failure taxonomy only
+- do not make anything actionable
+- do not add click/selection logic
+- keep the implementation tightly scoped to explanation and taxonomy on top of existing verification

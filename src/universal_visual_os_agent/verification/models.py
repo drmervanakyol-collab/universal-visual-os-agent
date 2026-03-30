@@ -21,6 +21,27 @@ class VerificationStatus(StrEnum):
     unknown = "unknown"
 
 
+class VerificationExplanationSeverity(StrEnum):
+    """Severity of a structured verification explanation."""
+
+    info = "info"
+    warning = "warning"
+    error = "error"
+
+
+class VerificationReasonCategory(StrEnum):
+    """Stable explanation and failure-taxonomy categories for verification."""
+
+    expected_change_observed = "expected_change_observed"
+    missing_input = "missing_input"
+    partial_input = "partial_input"
+    expected_change_not_found = "expected_change_not_found"
+    unexpected_change_detected = "unexpected_change_detected"
+    score_change_not_satisfied = "score_change_not_satisfied"
+    metadata_expectation_not_met = "metadata_expectation_not_met"
+    ambiguous_result = "ambiguous_result"
+
+
 class ExpectedSemanticChange(StrEnum):
     """High-level expected semantic outcome types."""
 
@@ -108,6 +129,9 @@ class SemanticOutcomeVerification:
     reasons: tuple[str, ...] = ()
     matched_change_type: str | None = None
     matched_changed_fields: tuple[str, ...] = ()
+    explanations: tuple["VerificationExplanation", ...] = ()
+    primary_reason_category: VerificationReasonCategory | None = None
+    reason_categories: tuple[VerificationReasonCategory, ...] = ()
     observe_only: bool = True
     read_only: bool = True
     non_actionable: bool = True
@@ -125,6 +149,52 @@ class SemanticOutcomeVerification:
 
 
 @dataclass(slots=True, frozen=True, kw_only=True)
+class VerificationExplanation:
+    """A structured, downstream-friendly explanation for verification behavior."""
+
+    category: VerificationReasonCategory
+    severity: VerificationExplanationSeverity
+    summary: str
+    related_outcome_id: str | None = None
+    related_item_id: str | None = None
+    related_semantic_category: SemanticDeltaCategory | None = None
+    observe_only: bool = True
+    read_only: bool = True
+    non_actionable: bool = True
+    metadata: Mapping[str, object] = field(default_factory=dict)
+
+    def __post_init__(self) -> None:
+        if not self.summary:
+            raise ValueError("summary must not be empty.")
+        if not self.observe_only or not self.read_only or not self.non_actionable:
+            raise ValueError("Verification explanations must remain observe-only and non-actionable.")
+
+
+@dataclass(slots=True, frozen=True, kw_only=True)
+class VerificationTaxonomy:
+    """Structured taxonomy summary for one verification result."""
+
+    summary: str
+    primary_category: VerificationReasonCategory | None = None
+    categories: tuple[VerificationReasonCategory, ...] = ()
+    category_counts: Mapping[str, int] = field(default_factory=dict)
+    info_count: int = 0
+    warning_count: int = 0
+    error_count: int = 0
+    observe_only: bool = True
+    read_only: bool = True
+    non_actionable: bool = True
+
+    def __post_init__(self) -> None:
+        if not self.summary:
+            raise ValueError("summary must not be empty.")
+        if self.info_count < 0 or self.warning_count < 0 or self.error_count < 0:
+            raise ValueError("Taxonomy severity counts must not be negative.")
+        if not self.observe_only or not self.read_only or not self.non_actionable:
+            raise ValueError("Verification taxonomy must remain observe-only and non-actionable.")
+
+
+@dataclass(slots=True, frozen=True, kw_only=True)
 class VerificationResult:
     """Verification status for an expected semantic state transition."""
 
@@ -139,6 +209,8 @@ class VerificationResult:
     unsatisfied_outcome_ids: tuple[str, ...] = ()
     unknown_outcome_ids: tuple[str, ...] = ()
     reasons: tuple[str, ...] = ()
+    explanations: tuple[VerificationExplanation, ...] = ()
+    taxonomy: VerificationTaxonomy | None = None
     semantic_delta: SemanticDelta | None = None
     observe_only: bool = True
     read_only: bool = True

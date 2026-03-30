@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections import Counter
+from dataclasses import replace
 from typing import Mapping
 
 from universal_visual_os_agent.semantics import ObserveOnlySemanticDeltaComparator
@@ -13,6 +14,10 @@ from universal_visual_os_agent.semantics.semantic_delta import (
     SemanticDeltaChange,
     SemanticDeltaChangeType,
 )
+from universal_visual_os_agent.verification.explanations import (
+    ObserveOnlyVerificationExplainer,
+)
+from universal_visual_os_agent.verification.interfaces import VerificationExplainer
 from universal_visual_os_agent.verification.models import (
     CandidateScoreDeltaDirection,
     ExpectedSemanticChange,
@@ -20,8 +25,12 @@ from universal_visual_os_agent.verification.models import (
     SemanticOutcomeVerification,
     SemanticStateTransition,
     SemanticTransitionExpectation,
+    VerificationExplanation,
+    VerificationExplanationSeverity,
+    VerificationReasonCategory,
     VerificationResult,
     VerificationStatus,
+    VerificationTaxonomy,
 )
 
 _EXPECTED_CHANGE_TO_DELTA_CHANGE = {
@@ -46,10 +55,12 @@ class GoalOrientedSemanticVerifier:
         self,
         *,
         delta_comparator: SemanticDeltaComparator | None = None,
+        explainer: VerificationExplainer | None = None,
     ) -> None:
         self._delta_comparator = (
             ObserveOnlySemanticDeltaComparator() if delta_comparator is None else delta_comparator
         )
+        self._explainer = ObserveOnlyVerificationExplainer() if explainer is None else explainer
 
     def verify(
         self,
@@ -57,15 +68,19 @@ class GoalOrientedSemanticVerifier:
         transition: SemanticStateTransition,
     ) -> VerificationResult:
         if transition.after is None:
-            return VerificationResult(
-                status=VerificationStatus.unknown,
-                summary=expectation.summary,
-                reasons=("After snapshot is unavailable, so verification could not be completed.",),
-                evidence={
-                    "verifier_name": self.verifier_name,
-                    "after_snapshot_available": False,
-                    "delta_available": False,
-                },
+            return self._finalize_result(
+                VerificationResult(
+                    status=VerificationStatus.unknown,
+                    summary=expectation.summary,
+                    reasons=("After snapshot is unavailable, so verification could not be completed.",),
+                    evidence={
+                        "verifier_name": self.verifier_name,
+                        "after_snapshot_available": False,
+                        "delta_available": False,
+                    },
+                ),
+                expectation=expectation,
+                transition=transition,
             )
 
         try:
@@ -172,36 +187,92 @@ class GoalOrientedSemanticVerifier:
                 "read_only": True,
                 "non_actionable": True,
             }
-            return VerificationResult(
-                status=status,
-                summary=expectation.summary,
-                matched_candidate_ids=matched_candidate_ids,
-                missing_candidate_ids=missing_candidate_ids,
-                unexpected_candidate_ids=unexpected_candidate_ids,
-                missing_node_ids=missing_node_ids,
-                outcome_verifications=outcome_verifications,
-                matched_outcome_ids=matched_outcome_ids,
-                unsatisfied_outcome_ids=unsatisfied_outcome_ids,
-                unknown_outcome_ids=unknown_outcome_ids,
-                reasons=reasons,
-                semantic_delta=delta,
-                evidence=evidence,
+            return self._finalize_result(
+                VerificationResult(
+                    status=status,
+                    summary=expectation.summary,
+                    matched_candidate_ids=matched_candidate_ids,
+                    missing_candidate_ids=missing_candidate_ids,
+                    unexpected_candidate_ids=unexpected_candidate_ids,
+                    missing_node_ids=missing_node_ids,
+                    outcome_verifications=outcome_verifications,
+                    matched_outcome_ids=matched_outcome_ids,
+                    unsatisfied_outcome_ids=unsatisfied_outcome_ids,
+                    unknown_outcome_ids=unknown_outcome_ids,
+                    reasons=reasons,
+                    semantic_delta=delta,
+                    evidence=evidence,
+                ),
+                expectation=expectation,
+                transition=transition,
             )
         except Exception as exc:  # noqa: BLE001 - verification must stay failure-safe
-            return VerificationResult(
-                status=VerificationStatus.unknown,
-                summary=expectation.summary,
-                reasons=(
-                    "Verification encountered an internal exception and remained observe-only.",
+            return self._finalize_result(
+                VerificationResult(
+                    status=VerificationStatus.unknown,
+                    summary=expectation.summary,
+                    reasons=(
+                        "Verification encountered an internal exception and remained observe-only.",
+                    ),
+                    evidence={
+                        "verifier_name": self.verifier_name,
+                        "exception_type": type(exc).__name__,
+                        "exception_message": str(exc),
+                        "delta_available": False,
+                        "observe_only": True,
+                        "read_only": True,
+                        "non_actionable": True,
+                    },
                 ),
-                evidence={
-                    "verifier_name": self.verifier_name,
+                expectation=expectation,
+                transition=transition,
+            )
+
+    def _finalize_result(
+        self,
+        result: VerificationResult,
+        *,
+        expectation: SemanticTransitionExpectation,
+        transition: SemanticStateTransition,
+    ) -> VerificationResult:
+        try:
+            return self._explainer.explain(
+                result,
+                expectation=expectation,
+                transition=transition,
+            )
+        except Exception as exc:  # noqa: BLE001 - explanation layer must remain failure-safe
+            fallback_explanation = VerificationExplanation(
+                category=VerificationReasonCategory.ambiguous_result,
+                severity=VerificationExplanationSeverity.warning,
+                summary="Verification explanation enrichment failed; the raw observe-only verification result was preserved.",
+                metadata={
                     "exception_type": type(exc).__name__,
                     "exception_message": str(exc),
-                    "delta_available": False,
-                    "observe_only": True,
-                    "read_only": True,
-                    "non_actionable": True,
+                },
+            )
+            fallback_taxonomy = VerificationTaxonomy(
+                summary=(
+                    "Verification taxonomy fell back to an ambiguous-result classification after explanation enrichment failed."
+                ),
+                primary_category=VerificationReasonCategory.ambiguous_result,
+                categories=(VerificationReasonCategory.ambiguous_result,),
+                category_counts={VerificationReasonCategory.ambiguous_result.value: 1},
+                warning_count=1,
+            )
+            return replace(
+                result,
+                explanations=(fallback_explanation,),
+                taxonomy=fallback_taxonomy,
+                evidence={
+                    **dict(result.evidence),
+                    "verification_explainer_name": getattr(
+                        self._explainer,
+                        "explainer_name",
+                        type(self._explainer).__name__,
+                    ),
+                    "verification_explainer_exception_type": type(exc).__name__,
+                    "verification_explainer_exception_message": str(exc),
                 },
             )
 

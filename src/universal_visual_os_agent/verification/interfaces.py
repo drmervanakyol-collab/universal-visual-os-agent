@@ -28,3 +28,16 @@ class Verifier(SemanticTransitionVerifier, Protocol):
 
 class GoalOrientedVerifier(SemanticTransitionVerifier, Protocol):
     """Verification contract for semantic-delta-based expected outcomes."""
+
+
+class VerificationExplainer(Protocol):
+    """Enrich verification results with structured explanations and taxonomy."""
+
+    def explain(
+        self,
+        result: VerificationResult,
+        *,
+        expectation: SemanticTransitionExpectation,
+        transition: SemanticStateTransition,
+    ) -> VerificationResult:
+        """Return a verification result enriched with observe-only explanations."""
