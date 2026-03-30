@@ -23,13 +23,15 @@ _EXPORT_MODULES = {
         "ActionSafetyGate",
         "ActionTargetValidation",
     ),
-    ".dry_run": (
+    ".dry_run_models": (
         "DryRunActionBatchResult",
         "DryRunActionCheckOutcome",
         "DryRunActionDisposition",
         "DryRunActionEvaluation",
         "DryRunActionEvaluationResult",
         "DryRunActionEvaluationView",
+    ),
+    ".dry_run": (
         "ObserveOnlyDryRunActionEngine",
     ),
     ".safe_click": (
@@ -39,9 +41,11 @@ _EXPORT_MODULES = {
         "SafeClickPrototypeExecutor",
         "SafeClickPrototypeStatus",
     ),
-    ".scaffolding": (
+    ".scaffolding_models": (
         "ActionIntentScaffoldView",
         "ActionIntentScaffoldingResult",
+    ),
+    ".scaffolding": (
         "ObserveOnlyActionIntentScaffolder",
     ),
 }
@@ -72,14 +76,14 @@ def __dir__() -> list[str]:
 
 
 if TYPE_CHECKING:
-    from .dry_run import (
+    from .dry_run import ObserveOnlyDryRunActionEngine
+    from .dry_run_models import (
         DryRunActionBatchResult,
         DryRunActionCheckOutcome,
         DryRunActionDisposition,
         DryRunActionEvaluation,
         DryRunActionEvaluationResult,
         DryRunActionEvaluationView,
-        ObserveOnlyDryRunActionEngine,
     )
     from .interfaces import (
         ActionExecutor,
@@ -105,8 +109,8 @@ if TYPE_CHECKING:
         SafeClickPrototypeExecutor,
         SafeClickPrototypeStatus,
     )
-    from .scaffolding import (
+    from .scaffolding import ObserveOnlyActionIntentScaffolder
+    from .scaffolding_models import (
         ActionIntentScaffoldView,
         ActionIntentScaffoldingResult,
-        ObserveOnlyActionIntentScaffolder,
     )

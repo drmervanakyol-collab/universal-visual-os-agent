@@ -19,10 +19,10 @@ from universal_visual_os_agent.policy.models import (
 )
 from universal_visual_os_agent.semantics.state import SemanticStateSnapshot
 
-from .dry_run import (
+from .dry_run import ObserveOnlyDryRunActionEngine
+from .dry_run_models import (
     DryRunActionDisposition,
     DryRunActionEvaluation,
-    ObserveOnlyDryRunActionEngine,
 )
 from .models import ActionIntent, ActionRequirementStatus
 

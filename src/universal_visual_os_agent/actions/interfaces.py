@@ -11,10 +11,10 @@ if TYPE_CHECKING:
     from universal_visual_os_agent.semantics.candidate_exposure import CandidateExposureView
     from universal_visual_os_agent.semantics.state import SemanticStateSnapshot
 
-    from .dry_run import DryRunActionBatchResult, DryRunActionEvaluationResult
+    from .dry_run_models import DryRunActionBatchResult, DryRunActionEvaluationResult
     from .models import ActionIntent, ActionResult
     from .safe_click import SafeClickExecutionResult
-    from .scaffolding import ActionIntentScaffoldView, ActionIntentScaffoldingResult
+    from .scaffolding_models import ActionIntentScaffoldView, ActionIntentScaffoldingResult
 
 
 class ActionExecutor(Protocol):

@@ -6,9 +6,9 @@ from dataclasses import dataclass, field
 from enum import StrEnum
 from typing import Mapping, Self
 
-from universal_visual_os_agent.actions.dry_run import DryRunActionEvaluation
+from universal_visual_os_agent.actions.dry_run_models import DryRunActionEvaluation
 from universal_visual_os_agent.actions.safe_click import SafeClickExecution
-from universal_visual_os_agent.actions.scaffolding import ActionIntentScaffoldView
+from universal_visual_os_agent.actions.scaffolding_models import ActionIntentScaffoldView
 from universal_visual_os_agent.actions.models import (
     ActionPrecondition,
     ActionSafetyGate,
