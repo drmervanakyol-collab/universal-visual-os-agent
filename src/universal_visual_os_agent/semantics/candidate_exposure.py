@@ -6,6 +6,12 @@ from collections import Counter
 from dataclasses import dataclass, field
 from typing import Mapping, Self
 
+from universal_visual_os_agent.semantics.ontology import (
+    CandidateProvenanceRecord,
+    CandidateSelectionRiskLevel,
+    SemanticCandidateSourceType,
+    candidate_ontology_completeness_status,
+)
 from universal_visual_os_agent.semantics.state import (
     SemanticCandidate,
     SemanticCandidateClass,
@@ -47,6 +53,13 @@ class ExposedCandidate:
     source_text_region_id: str | None = None
     source_text_block_id: str | None = None
     semantic_layout_role: str | None = None
+    source_type: SemanticCandidateSourceType | None = None
+    selection_risk_level: CandidateSelectionRiskLevel | None = None
+    disambiguation_needed: bool = False
+    requires_local_resolver: bool = False
+    source_conflict_present: bool = False
+    source_of_truth_priority: tuple[SemanticCandidateSourceType, ...] = ()
+    provenance: tuple[CandidateProvenanceRecord, ...] = ()
     heuristic_explanations: tuple[str, ...] = ()
     score_explanations: tuple[str, ...] = ()
     score_factors: Mapping[str, float] = field(default_factory=dict)
@@ -189,6 +202,10 @@ class _ExposureArtifacts:
     missing_score_explanation_candidate_ids: tuple[str, ...] = ()
     missing_score_factor_candidate_ids: tuple[str, ...] = ()
     missing_source_layout_candidate_ids: tuple[str, ...] = ()
+    missing_source_type_candidate_ids: tuple[str, ...] = ()
+    missing_selection_risk_candidate_ids: tuple[str, ...] = ()
+    missing_source_priority_candidate_ids: tuple[str, ...] = ()
+    missing_provenance_candidate_ids: tuple[str, ...] = ()
     unsafe_source_candidate_ids: tuple[str, ...] = ()
     scoring_metadata_incomplete: bool = False
 
@@ -200,6 +217,10 @@ class _ExposureArtifacts:
             or self.missing_score_explanation_candidate_ids
             or self.missing_score_factor_candidate_ids
             or self.missing_source_layout_candidate_ids
+            or self.missing_source_type_candidate_ids
+            or self.missing_selection_risk_candidate_ids
+            or self.missing_source_priority_candidate_ids
+            or self.missing_provenance_candidate_ids
             or self.unsafe_source_candidate_ids
             or self.scoring_metadata_incomplete
         ):
@@ -271,6 +292,14 @@ class ObserveOnlyCandidateExposer:
                         artifacts.missing_score_factor_candidate_ids
                     ),
                     "missing_source_layout_candidate_ids": artifacts.missing_source_layout_candidate_ids,
+                    "missing_source_type_candidate_ids": artifacts.missing_source_type_candidate_ids,
+                    "missing_selection_risk_candidate_ids": (
+                        artifacts.missing_selection_risk_candidate_ids
+                    ),
+                    "missing_source_priority_candidate_ids": (
+                        artifacts.missing_source_priority_candidate_ids
+                    ),
+                    "missing_provenance_candidate_ids": artifacts.missing_provenance_candidate_ids,
                     "unsafe_source_candidate_ids": artifacts.unsafe_source_candidate_ids,
                     "scoring_metadata_incomplete": artifacts.scoring_metadata_incomplete,
                     "class_counts": tuple(
@@ -281,6 +310,39 @@ class ObserveOnlyCandidateExposer:
                                 if candidate.candidate_class is not None
                             ).items()
                         )
+                    ),
+                    "source_type_counts": tuple(
+                        sorted(
+                            Counter(
+                                candidate.source_type.value
+                                for candidate in artifacts.exposed_candidates
+                                if candidate.source_type is not None
+                            ).items()
+                        )
+                    ),
+                    "selection_risk_level_counts": tuple(
+                        sorted(
+                            Counter(
+                                candidate.selection_risk_level.value
+                                for candidate in artifacts.exposed_candidates
+                                if candidate.selection_risk_level is not None
+                            ).items()
+                        )
+                    ),
+                    "disambiguation_needed_candidate_ids": tuple(
+                        candidate.candidate_id
+                        for candidate in artifacts.exposed_candidates
+                        if candidate.disambiguation_needed
+                    ),
+                    "requires_local_resolver_candidate_ids": tuple(
+                        candidate.candidate_id
+                        for candidate in artifacts.exposed_candidates
+                        if candidate.requires_local_resolver
+                    ),
+                    "source_conflict_candidate_ids": tuple(
+                        candidate.candidate_id
+                        for candidate in artifacts.exposed_candidates
+                        if candidate.source_conflict_present
                     ),
                 },
             )
@@ -319,6 +381,10 @@ class ObserveOnlyCandidateExposer:
         missing_score_explanation_candidate_ids: list[str] = []
         missing_score_factor_candidate_ids: list[str] = []
         missing_source_layout_candidate_ids: list[str] = []
+        missing_source_type_candidate_ids: list[str] = []
+        missing_selection_risk_candidate_ids: list[str] = []
+        missing_source_priority_candidate_ids: list[str] = []
+        missing_provenance_candidate_ids: list[str] = []
         unsafe_source_candidate_ids: list[str] = []
 
         staged_candidates: list[ExposedCandidate] = []
@@ -353,6 +419,14 @@ class ObserveOnlyCandidateExposer:
                 missing_score_factor_candidate_ids.append(candidate.candidate_id)
             if source_layout_region_id is None or source_layout_region_id not in layout_region_ids:
                 missing_source_layout_candidate_ids.append(candidate.candidate_id)
+            if candidate.source_type is None:
+                missing_source_type_candidate_ids.append(candidate.candidate_id)
+            if candidate.selection_risk_level is None:
+                missing_selection_risk_candidate_ids.append(candidate.candidate_id)
+            if not candidate.source_of_truth_priority:
+                missing_source_priority_candidate_ids.append(candidate.candidate_id)
+            if not candidate.provenance:
+                missing_provenance_candidate_ids.append(candidate.candidate_id)
             if candidate.enabled or candidate.actionable or candidate.metadata.get("observe_only") is not True:
                 unsafe_source_candidate_ids.append(candidate.candidate_id)
 
@@ -385,6 +459,13 @@ class ObserveOnlyCandidateExposer:
                     semantic_layout_role=_coerce_optional_string(
                         candidate.metadata.get("semantic_layout_role")
                     ),
+                    source_type=candidate.source_type,
+                    selection_risk_level=candidate.selection_risk_level,
+                    disambiguation_needed=candidate.disambiguation_needed,
+                    requires_local_resolver=candidate.requires_local_resolver,
+                    source_conflict_present=candidate.source_conflict_present,
+                    source_of_truth_priority=candidate.source_of_truth_priority,
+                    provenance=candidate.provenance,
                     heuristic_explanations=candidate.heuristic_explanations,
                     score_explanations=score_explanations,
                     score_factors=score_factors,
@@ -395,6 +476,30 @@ class ObserveOnlyCandidateExposer:
                         "candidate_exposer_name": self.exposer_name,
                         "candidate_rank": 1,
                         "candidate_exposure_completeness_status": completeness_status,
+                        "candidate_source_type": (
+                            None if candidate.source_type is None else candidate.source_type.value
+                        ),
+                        "candidate_selection_risk_level": (
+                            None
+                            if candidate.selection_risk_level is None
+                            else candidate.selection_risk_level.value
+                        ),
+                        "candidate_disambiguation_needed": candidate.disambiguation_needed,
+                        "candidate_requires_local_resolver": candidate.requires_local_resolver,
+                        "candidate_source_conflict_present": candidate.source_conflict_present,
+                        "candidate_source_of_truth_priority": tuple(
+                            source_type.value for source_type in candidate.source_of_truth_priority
+                        ),
+                        "candidate_provenance": tuple(
+                            {
+                                "source_type": record.source_type.value,
+                                "source_id": record.source_id,
+                                "source_label": record.source_label,
+                                "confidence": record.confidence,
+                                "metadata": dict(record.metadata),
+                            }
+                            for record in candidate.provenance
+                        ),
                         "observe_only": True,
                         "analysis_only": True,
                         "non_actionable_candidate": True,
@@ -423,6 +528,13 @@ class ObserveOnlyCandidateExposer:
                 source_text_region_id=candidate.source_text_region_id,
                 source_text_block_id=candidate.source_text_block_id,
                 semantic_layout_role=candidate.semantic_layout_role,
+                source_type=candidate.source_type,
+                selection_risk_level=candidate.selection_risk_level,
+                disambiguation_needed=candidate.disambiguation_needed,
+                requires_local_resolver=candidate.requires_local_resolver,
+                source_conflict_present=candidate.source_conflict_present,
+                source_of_truth_priority=candidate.source_of_truth_priority,
+                provenance=candidate.provenance,
                 heuristic_explanations=candidate.heuristic_explanations,
                 score_explanations=candidate.score_explanations,
                 score_factors=candidate.score_factors,
@@ -447,6 +559,14 @@ class ObserveOnlyCandidateExposer:
             ),
             missing_score_factor_candidate_ids=tuple(sorted(set(missing_score_factor_candidate_ids))),
             missing_source_layout_candidate_ids=tuple(sorted(set(missing_source_layout_candidate_ids))),
+            missing_source_type_candidate_ids=tuple(sorted(set(missing_source_type_candidate_ids))),
+            missing_selection_risk_candidate_ids=tuple(
+                sorted(set(missing_selection_risk_candidate_ids))
+            ),
+            missing_source_priority_candidate_ids=tuple(
+                sorted(set(missing_source_priority_candidate_ids))
+            ),
+            missing_provenance_candidate_ids=tuple(sorted(set(missing_provenance_candidate_ids))),
             unsafe_source_candidate_ids=tuple(sorted(set(unsafe_source_candidate_ids))),
             scoring_metadata_incomplete=scoring_metadata_incomplete,
         )
@@ -496,6 +616,8 @@ def _candidate_completeness_status(
     source_layout_region_id: str | None,
     layout_region_ids: set[str],
 ) -> str:
+    if candidate_ontology_completeness_status(candidate) != "available":
+        return "partial"
     if candidate.candidate_class is None:
         return "partial"
     if candidate.confidence is None:

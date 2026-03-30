@@ -10,6 +10,13 @@ from uuid import uuid4
 
 from universal_visual_os_agent.geometry.models import NormalizedBBox
 from universal_visual_os_agent.semantics.layout import SemanticLayoutTree
+from universal_visual_os_agent.semantics.ontology import (
+    CandidateProvenanceRecord,
+    CandidateSelectionRiskLevel,
+    SemanticCandidateSourceType,
+    normalize_provenance,
+    normalize_source_of_truth_priority,
+)
 
 
 class SemanticTextStatus(StrEnum):
@@ -173,6 +180,13 @@ class SemanticCandidate:
     role: str | None = None
     candidate_class: SemanticCandidateClass | None = None
     confidence: float | None = None
+    source_type: SemanticCandidateSourceType | None = None
+    selection_risk_level: CandidateSelectionRiskLevel | None = None
+    disambiguation_needed: bool = False
+    requires_local_resolver: bool = False
+    source_conflict_present: bool = False
+    source_of_truth_priority: tuple[SemanticCandidateSourceType, ...] = ()
+    provenance: tuple[CandidateProvenanceRecord, ...] = ()
     visible: bool = True
     enabled: bool = True
     occluded: bool = False
@@ -188,6 +202,14 @@ class SemanticCandidate:
             raise ValueError("label must not be empty.")
         if self.confidence is not None and not 0.0 <= self.confidence <= 1.0:
             raise ValueError("confidence must be between 0.0 and 1.0 inclusive.")
+        if len(set(self.source_of_truth_priority)) != len(self.source_of_truth_priority):
+            raise ValueError("source_of_truth_priority must not contain duplicates.")
+        normalized_priority = normalize_source_of_truth_priority(self.source_of_truth_priority)
+        if normalized_priority != self.source_of_truth_priority:
+            raise ValueError("source_of_truth_priority must use deterministic ontology ordering.")
+        normalized_provenance = normalize_provenance(self.provenance)
+        if normalized_provenance != self.provenance:
+            raise ValueError("provenance must use deterministic ontology ordering.")
 
     @property
     def actionable(self) -> bool:

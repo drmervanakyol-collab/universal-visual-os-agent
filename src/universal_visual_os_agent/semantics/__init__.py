@@ -37,6 +37,12 @@ from universal_visual_os_agent.semantics.layout_region_analysis import (
     GeometricLayoutRegionAnalyzer,
     LayoutRegionAnalysisResult,
 )
+from universal_visual_os_agent.semantics.ontology import (
+    CandidateOntologyCarrier,
+    CandidateProvenanceRecord,
+    CandidateSelectionRiskLevel,
+    SemanticCandidateSourceType,
+)
 from universal_visual_os_agent.semantics.models import (
     SemanticCandidate,
     SemanticRegionBlock,
@@ -82,6 +88,9 @@ from universal_visual_os_agent.semantics.state import (
 
 __all__ = [
     "CandidateExposer",
+    "CandidateOntologyCarrier",
+    "CandidateProvenanceRecord",
+    "CandidateSelectionRiskLevel",
     "CandidateExposureOptions",
     "CandidateExposureResult",
     "CandidateExposureView",
@@ -104,6 +113,7 @@ __all__ = [
     "RapidOcrTextExtractionBackend",
     "SemanticCandidate",
     "SemanticCandidateClass",
+    "SemanticCandidateSourceType",
     "SemanticExtractionInput",
     "SemanticExtractionInputAdapter",
     "SemanticExtractionPreparationResult",

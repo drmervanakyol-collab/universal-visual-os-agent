@@ -8,6 +8,13 @@ from dataclasses import dataclass, field, replace
 from typing import Mapping, Self
 
 from universal_visual_os_agent.geometry import NormalizedBBox
+from universal_visual_os_agent.semantics.ontology import (
+    CandidateProvenanceRecord,
+    CandidateSelectionRiskLevel,
+    SemanticCandidateSourceType,
+    normalize_provenance,
+    normalize_source_of_truth_priority,
+)
 from universal_visual_os_agent.semantics.state import (
     SemanticCandidate,
     SemanticCandidateClass,
@@ -204,6 +211,16 @@ class ObserveOnlyCandidateGenerator:
                 for candidate in artifacts.generated_candidates
                 if candidate.candidate_class is not None
             )
+            source_type_counts = Counter(
+                candidate.source_type.value
+                for candidate in artifacts.generated_candidates
+                if candidate.source_type is not None
+            )
+            risk_level_counts = Counter(
+                candidate.selection_risk_level.value
+                for candidate in artifacts.generated_candidates
+                if candidate.selection_risk_level is not None
+            )
             generated_snapshot = replace(
                 snapshot,
                 candidates=all_candidates,
@@ -215,6 +232,8 @@ class ObserveOnlyCandidateGenerator:
                         candidate.candidate_id for candidate in artifacts.generated_candidates
                     ),
                     "generated_candidate_class_counts": tuple(sorted(class_counts.items())),
+                    "generated_candidate_source_type_counts": tuple(sorted(source_type_counts.items())),
+                    "generated_candidate_risk_level_counts": tuple(sorted(risk_level_counts.items())),
                     "candidate_generation_signal_status": artifacts.signal_status,
                     "candidate_generation_missing_semantic_role_region_ids": (
                         artifacts.missing_semantic_role_region_ids
@@ -241,6 +260,8 @@ class ObserveOnlyCandidateGenerator:
                 "generated_candidate_count": len(artifacts.generated_candidates),
                 "signal_status": artifacts.signal_status,
                 "class_counts": tuple(sorted(class_counts.items())),
+                "source_type_counts": tuple(sorted(source_type_counts.items())),
+                "risk_level_counts": tuple(sorted(risk_level_counts.items())),
             },
         )
 
@@ -301,6 +322,27 @@ class ObserveOnlyCandidateGenerator:
             f"semantic layout role {region.semantic_role.value} indicates a likely interactive container",
             "layout-derived candidate remains observe-only and non-actionable in Phase 3A",
         ]
+        provenance = normalize_provenance(
+            (
+                CandidateProvenanceRecord(
+                    source_type=SemanticCandidateSourceType.layout,
+                    source_id=region.region_id,
+                    source_label=region.label,
+                    confidence=region.confidence,
+                ),
+                CandidateProvenanceRecord(
+                    source_type=SemanticCandidateSourceType.heuristic,
+                    source_id=f"{region.region_id}:interactive_region",
+                    source_label="interactive_region_heuristic",
+                ),
+            )
+        )
+        source_of_truth_priority = normalize_source_of_truth_priority(
+            (
+                SemanticCandidateSourceType.layout,
+                SemanticCandidateSourceType.heuristic,
+            )
+        )
         candidate_id = _unique_candidate_id(
             f"{region.region_id}:generated:{SemanticCandidateClass.interactive_region_like.value}",
             existing_candidate_ids,
@@ -317,6 +359,13 @@ class ObserveOnlyCandidateGenerator:
                 source_confidences=(region.confidence,),
                 signal_status=_signal_status_for_region(region),
             ),
+            source_type=SemanticCandidateSourceType.layout,
+            selection_risk_level=CandidateSelectionRiskLevel.high,
+            disambiguation_needed=True,
+            requires_local_resolver=True,
+            source_conflict_present=False,
+            source_of_truth_priority=source_of_truth_priority,
+            provenance=provenance,
             visible=region.visible,
             enabled=False,
             heuristic_explanations=tuple(explanations),
@@ -331,6 +380,15 @@ class ObserveOnlyCandidateGenerator:
                 "semantic_layout_role": (
                     None if region.semantic_role is None else region.semantic_role.value
                 ),
+                "candidate_source_type": SemanticCandidateSourceType.layout.value,
+                "candidate_selection_risk_level": CandidateSelectionRiskLevel.high.value,
+                "candidate_disambiguation_needed": True,
+                "candidate_requires_local_resolver": True,
+                "candidate_source_conflict_present": False,
+                "candidate_source_of_truth_priority": tuple(
+                    source_type.value for source_type in source_of_truth_priority
+                ),
+                "candidate_provenance": _provenance_metadata(provenance),
                 "observe_only": True,
                 "analysis_only": True,
                 "non_actionable_candidate": True,
@@ -375,6 +433,34 @@ class ObserveOnlyCandidateGenerator:
             candidate_class=candidate_class,
             normalized_text=normalized_text,
         )
+        source_type = _candidate_source_type_for_text_block(block=block, region=region)
+        source_conflict_present = _source_conflict_present_for_text_block(
+            candidate_class,
+            region=region,
+            normalized_text=normalized_text,
+        )
+        disambiguation_needed = _disambiguation_needed(
+            candidate_class,
+            source_conflict_present=source_conflict_present,
+            signal_status=_signal_status_for_region(region),
+        )
+        selection_risk_level = _selection_risk_level(
+            candidate_class,
+            source_conflict_present=source_conflict_present,
+            signal_status=_signal_status_for_region(region),
+            token_count=len(tokens),
+        )
+        requires_local_resolver = _requires_local_resolver(
+            selection_risk_level,
+            disambiguation_needed=disambiguation_needed,
+            source_conflict_present=source_conflict_present,
+        )
+        provenance = _text_block_provenance(
+            block,
+            region=region,
+            candidate_class=candidate_class,
+        )
+        source_of_truth_priority = _source_of_truth_priority_for_text_block()
         candidate_id = _unique_candidate_id(
             f"{block.text_block_id}:generated:{candidate_class.value}",
             existing_candidate_ids,
@@ -392,6 +478,13 @@ class ObserveOnlyCandidateGenerator:
                     source_confidences=(block.confidence, region.confidence),
                     signal_status=_signal_status_for_region(region),
                 ),
+                source_type=source_type,
+                selection_risk_level=selection_risk_level,
+                disambiguation_needed=disambiguation_needed,
+                requires_local_resolver=requires_local_resolver,
+                source_conflict_present=source_conflict_present,
+                source_of_truth_priority=source_of_truth_priority,
+                provenance=provenance,
                 visible=block.visible,
                 enabled=False,
                 heuristic_explanations=tuple(explanations),
@@ -406,6 +499,15 @@ class ObserveOnlyCandidateGenerator:
                     "semantic_layout_role": (
                         None if region.semantic_role is None else region.semantic_role.value
                     ),
+                    "candidate_source_type": source_type.value,
+                    "candidate_selection_risk_level": selection_risk_level.value,
+                    "candidate_disambiguation_needed": disambiguation_needed,
+                    "candidate_requires_local_resolver": requires_local_resolver,
+                    "candidate_source_conflict_present": source_conflict_present,
+                    "candidate_source_of_truth_priority": tuple(
+                        source.value for source in source_of_truth_priority
+                    ),
+                    "candidate_provenance": _provenance_metadata(provenance),
                     "observe_only": True,
                     "analysis_only": True,
                     "non_actionable_candidate": True,
@@ -434,6 +536,37 @@ class ObserveOnlyCandidateGenerator:
                 "suggests tab-like navigation",
             )
             candidate_class = SemanticCandidateClass.tab_like
+            source_type = _candidate_source_type_for_text_block(block=block, region=region)
+            source_conflict_present = _source_conflict_present_for_text_block(
+                candidate_class,
+                region=region,
+                normalized_text=token,
+            )
+            disambiguation_needed = _disambiguation_needed(
+                candidate_class,
+                source_conflict_present=source_conflict_present,
+                signal_status=_signal_status_for_region(region),
+            )
+            selection_risk_level = _selection_risk_level(
+                candidate_class,
+                source_conflict_present=source_conflict_present,
+                signal_status=_signal_status_for_region(region),
+                token_count=1,
+            )
+            requires_local_resolver = _requires_local_resolver(
+                selection_risk_level,
+                disambiguation_needed=disambiguation_needed,
+                source_conflict_present=source_conflict_present,
+            )
+            provenance = _text_block_provenance(
+                block,
+                region=region,
+                candidate_class=candidate_class,
+                token_index=index,
+                token_count=len(tokens),
+                token_label=token,
+            )
+            source_of_truth_priority = _source_of_truth_priority_for_text_block()
             candidate = SemanticCandidate(
                 candidate_id=_unique_candidate_id(
                     f"{block.text_block_id}:generated:{candidate_class.value}:{index}",
@@ -449,6 +582,13 @@ class ObserveOnlyCandidateGenerator:
                     source_confidences=(block.confidence, region.confidence),
                     signal_status=_signal_status_for_region(region),
                 ),
+                source_type=source_type,
+                selection_risk_level=selection_risk_level,
+                disambiguation_needed=disambiguation_needed,
+                requires_local_resolver=requires_local_resolver,
+                source_conflict_present=source_conflict_present,
+                source_of_truth_priority=source_of_truth_priority,
+                provenance=provenance,
                 visible=block.visible,
                 enabled=False,
                 heuristic_explanations=explanations,
@@ -465,6 +605,15 @@ class ObserveOnlyCandidateGenerator:
                     ),
                     "candidate_token_index": index,
                     "candidate_token_count": len(tokens),
+                    "candidate_source_type": source_type.value,
+                    "candidate_selection_risk_level": selection_risk_level.value,
+                    "candidate_disambiguation_needed": disambiguation_needed,
+                    "candidate_requires_local_resolver": requires_local_resolver,
+                    "candidate_source_conflict_present": source_conflict_present,
+                    "candidate_source_of_truth_priority": tuple(
+                        source.value for source in source_of_truth_priority
+                    ),
+                    "candidate_provenance": _provenance_metadata(provenance),
                     "observe_only": True,
                     "analysis_only": True,
                     "non_actionable_candidate": True,
@@ -595,6 +744,170 @@ def _matches_phrase(text: str, phrases: frozenset[str]) -> bool:
     if text in phrases:
         return True
     return any(phrase in text for phrase in phrases)
+
+
+def _candidate_source_type_for_text_block(
+    *,
+    block: SemanticTextBlock,
+    region: SemanticLayoutRegion,
+) -> SemanticCandidateSourceType:
+    del block, region
+    return SemanticCandidateSourceType.mixed
+
+
+def _source_of_truth_priority_for_text_block() -> tuple[SemanticCandidateSourceType, ...]:
+    return normalize_source_of_truth_priority(
+        (
+            SemanticCandidateSourceType.ocr,
+            SemanticCandidateSourceType.layout,
+            SemanticCandidateSourceType.heuristic,
+        )
+    )
+
+
+def _text_block_provenance(
+    block: SemanticTextBlock,
+    *,
+    region: SemanticLayoutRegion,
+    candidate_class: SemanticCandidateClass,
+    token_index: int | None = None,
+    token_count: int | None = None,
+    token_label: str | None = None,
+) -> tuple[CandidateProvenanceRecord, ...]:
+    heuristic_metadata: dict[str, object] = {"candidate_class": candidate_class.value}
+    if token_index is not None:
+        heuristic_metadata["candidate_token_index"] = token_index
+    if token_count is not None:
+        heuristic_metadata["candidate_token_count"] = token_count
+    if token_label is not None:
+        heuristic_metadata["candidate_token_label"] = token_label
+    return normalize_provenance(
+        (
+            CandidateProvenanceRecord(
+                source_type=SemanticCandidateSourceType.ocr,
+                source_id=block.text_block_id,
+                source_label=block.label if block.extracted_text is None else block.extracted_text,
+                confidence=block.confidence,
+                metadata={
+                    "text_region_id": block.region_id,
+                    "text": block.extracted_text,
+                },
+            ),
+            CandidateProvenanceRecord(
+                source_type=SemanticCandidateSourceType.layout,
+                source_id=region.region_id,
+                source_label=region.label,
+                confidence=region.confidence,
+                metadata={
+                    "semantic_role": None if region.semantic_role is None else region.semantic_role.value,
+                },
+            ),
+            CandidateProvenanceRecord(
+                source_type=SemanticCandidateSourceType.heuristic,
+                source_id=f"{block.text_block_id}:{candidate_class.value}",
+                source_label=f"{candidate_class.value}_heuristic",
+                metadata=heuristic_metadata,
+            ),
+        )
+    )
+
+
+def _source_conflict_present_for_text_block(
+    candidate_class: SemanticCandidateClass,
+    *,
+    region: SemanticLayoutRegion,
+    normalized_text: str,
+) -> bool:
+    if region.semantic_role is None:
+        return True
+    if candidate_class is SemanticCandidateClass.interactive_region_like:
+        return True
+    if candidate_class is SemanticCandidateClass.close_like:
+        return region.semantic_role not in _DIALOG_ROLES and normalized_text not in _CLOSE_HINTS
+    if candidate_class is SemanticCandidateClass.popup_dismiss_like:
+        return region.semantic_role not in _DIALOG_ROLES
+    if candidate_class is SemanticCandidateClass.input_like and _matches_phrase(
+        normalized_text, _BUTTON_HINTS
+    ):
+        return True
+    if candidate_class is SemanticCandidateClass.button_like and _matches_phrase(
+        normalized_text, _INPUT_HINTS
+    ):
+        return True
+    if candidate_class is SemanticCandidateClass.tab_like:
+        return region.semantic_role not in _NAVIGATION_ROLES
+    return False
+
+
+def _disambiguation_needed(
+    candidate_class: SemanticCandidateClass,
+    *,
+    source_conflict_present: bool,
+    signal_status: str,
+) -> bool:
+    if source_conflict_present or signal_status != "available":
+        return True
+    return candidate_class in {
+        SemanticCandidateClass.close_like,
+        SemanticCandidateClass.popup_dismiss_like,
+        SemanticCandidateClass.interactive_region_like,
+    }
+
+
+def _selection_risk_level(
+    candidate_class: SemanticCandidateClass,
+    *,
+    source_conflict_present: bool,
+    signal_status: str,
+    token_count: int,
+) -> CandidateSelectionRiskLevel:
+    if (
+        source_conflict_present
+        or signal_status != "available"
+        or candidate_class
+        in {
+            SemanticCandidateClass.close_like,
+            SemanticCandidateClass.popup_dismiss_like,
+            SemanticCandidateClass.interactive_region_like,
+        }
+    ):
+        return CandidateSelectionRiskLevel.high
+    if candidate_class in {
+        SemanticCandidateClass.button_like,
+        SemanticCandidateClass.input_like,
+    }:
+        return CandidateSelectionRiskLevel.medium
+    if candidate_class is SemanticCandidateClass.tab_like and token_count == 1:
+        return CandidateSelectionRiskLevel.low
+    return CandidateSelectionRiskLevel.medium
+
+
+def _requires_local_resolver(
+    selection_risk_level: CandidateSelectionRiskLevel,
+    *,
+    disambiguation_needed: bool,
+    source_conflict_present: bool,
+) -> bool:
+    return (
+        selection_risk_level is CandidateSelectionRiskLevel.high
+        or disambiguation_needed
+        or source_conflict_present
+    )
+
+
+def _provenance_metadata(
+    provenance: tuple[CandidateProvenanceRecord, ...],
+) -> tuple[Mapping[str, object], ...]:
+    return tuple(
+        {
+            "source_type": record.source_type.value,
+            "source_id": record.source_id,
+            "source_label": record.source_label,
+            "confidence": record.confidence,
+            "metadata": dict(record.metadata),
+        }
+        for record in provenance
+    )
 
 
 def _segment_bounds(

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections import Counter
-from dataclasses import dataclass, field, fields
+from dataclasses import dataclass, field, fields, is_dataclass
 from datetime import date, datetime, time
 from enum import Enum, StrEnum
 from typing import Mapping, Self
@@ -627,6 +627,11 @@ def _freeze_value(value: object) -> object:
         return value.value
     if isinstance(value, Enum):
         return value.value
+    if is_dataclass(value) and not isinstance(value, type):
+        return {
+            dataclass_field.name: _freeze_value(getattr(value, dataclass_field.name))
+            for dataclass_field in fields(value)
+        }
     if isinstance(value, NormalizedBBox):
         return {
             "left": value.left,
@@ -726,6 +731,10 @@ def _incomplete_candidate_ids(
         and (
             candidate.candidate_class is None
             or candidate.confidence is None
+            or candidate.source_type is None
+            or candidate.selection_risk_level is None
+            or not candidate.source_of_truth_priority
+            or not candidate.provenance
             or not isinstance(candidate.metadata.get("source_layout_region_id"), str)
             or not candidate.metadata.get("source_layout_region_id")
         )
