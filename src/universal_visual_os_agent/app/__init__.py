@@ -11,6 +11,25 @@ from universal_visual_os_agent.app.models import (
     RetryPolicy,
 )
 from universal_visual_os_agent.app.orchestration import AsyncMainLoopOrchestrator
+from universal_visual_os_agent.app.runtime_event_models import (
+    RuntimeAnalysisTarget,
+    RuntimeCaptureTarget,
+    RuntimeDispatchMode,
+    RuntimeEvent,
+    RuntimeEventCoalescingMode,
+    RuntimeEventDispatchPlan,
+    RuntimeEventDispatchResult,
+    RuntimeEventDisposition,
+    RuntimeEventQueueSnapshot,
+    RuntimeEventQueueStatus,
+    RuntimeEventSource,
+    RuntimeEventSubmissionResult,
+    RuntimeEventType,
+    RuntimeInvalidationScope,
+    RuntimeInvalidationSignal,
+    RuntimeSelectiveTrigger,
+)
+from universal_visual_os_agent.app.runtime_events import ObserveOnlyRuntimeEventCoordinator
 
 __all__ = [
     "AsyncMainLoopOrchestrator",
@@ -20,6 +39,23 @@ __all__ = [
     "LoopResult",
     "LoopStage",
     "LoopStatus",
+    "ObserveOnlyRuntimeEventCoordinator",
     "RetryPolicy",
+    "RuntimeAnalysisTarget",
+    "RuntimeCaptureTarget",
+    "RuntimeDispatchMode",
+    "RuntimeEvent",
+    "RuntimeEventCoalescingMode",
+    "RuntimeEventDispatchPlan",
+    "RuntimeEventDispatchResult",
+    "RuntimeEventDisposition",
+    "RuntimeEventQueueSnapshot",
+    "RuntimeEventQueueStatus",
+    "RuntimeEventSource",
+    "RuntimeEventSubmissionResult",
+    "RuntimeEventType",
+    "RuntimeInvalidationScope",
+    "RuntimeInvalidationSignal",
+    "RuntimeSelectiveTrigger",
     "configure_logging",
 ]

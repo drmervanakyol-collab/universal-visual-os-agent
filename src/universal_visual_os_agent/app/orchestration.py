@@ -14,6 +14,7 @@ from universal_visual_os_agent.app.interfaces import (
     ObservationProvider,
     RecoveryLoader,
     RecoveryReconciler,
+    RuntimeEventCoordinator,
     SemanticRebuilder,
     TransitionVerifier,
 )
@@ -26,6 +27,7 @@ from universal_visual_os_agent.app.models import (
     LoopStatus,
     RetryPolicy,
 )
+from universal_visual_os_agent.app.runtime_event_models import RuntimeEvent, RuntimeEventSubmissionResult
 from universal_visual_os_agent.config.modes import AgentMode
 from universal_visual_os_agent.config.models import RunConfig
 from universal_visual_os_agent.perception.models import CapturedFrame
@@ -56,6 +58,7 @@ class AsyncMainLoopOrchestrator:
     recovery_loader: RecoveryLoader | None = None
     recovery_reconciler: RecoveryReconciler | None = None
     action_executor: LoopActionExecutor | None = None
+    runtime_event_coordinator: RuntimeEventCoordinator | None = None
     queue_maxsize: int = 16
     timeout_seconds: float = 1.0
     retry_policy: RetryPolicy = RetryPolicy()
@@ -77,6 +80,12 @@ class AsyncMainLoopOrchestrator:
 
         return self._queue.qsize()
 
+    @property
+    def pending_runtime_event_count(self) -> int:
+        """Return the number of queued runtime events."""
+
+        return self._get_runtime_event_coordinator().pending_count
+
     async def enqueue(self, request: LoopRequest | None = None) -> LoopRequest:
         """Queue an orchestration request."""
 
@@ -89,6 +98,33 @@ class AsyncMainLoopOrchestrator:
 
         await self.enqueue(request)
         return await self.run_next()
+
+    async def enqueue_runtime_event(self, event: RuntimeEvent) -> RuntimeEventSubmissionResult:
+        """Queue one runtime event for later event-first dispatch."""
+
+        return self._get_runtime_event_coordinator().submit(event)
+
+    async def run_next_runtime_event(self) -> LoopResult:
+        """Dispatch and execute the next runtime event through the existing safe loop."""
+
+        dispatch_result = self._get_runtime_event_coordinator().dispatch_next()
+        if not dispatch_result.success or dispatch_result.dispatch_plan is None:
+            return LoopResult(
+                status=LoopStatus.aborted,
+                attempt_count=1,
+                safe_abort_reason=dispatch_result.error_message or "Runtime event dispatch failed.",
+                error_type=dispatch_result.error_code,
+            )
+        dispatch_plan = dispatch_result.dispatch_plan
+        request = LoopRequest(
+            metadata={
+                "runtime_event_source_event_ids": dispatch_plan.source_event_ids,
+                "runtime_dispatch_mode": dispatch_plan.dispatch_mode,
+                "runtime_dispatch_summary": dispatch_plan.summary,
+            },
+            runtime_event_dispatch=dispatch_plan,
+        )
+        return await self._run_request(request)
 
     async def run_next(self) -> LoopResult:
         """Execute the next queued request."""
@@ -124,6 +160,7 @@ class AsyncMainLoopOrchestrator:
                     status=LoopStatus.cancelled,
                     attempt_count=attempt,
                     request=request,
+                    runtime_event_dispatch=request.runtime_event_dispatch,
                     safe_abort_reason="Loop cancelled.",
                     error_type="CancelledError",
                 )
@@ -134,6 +171,7 @@ class AsyncMainLoopOrchestrator:
                     status=LoopStatus.timed_out,
                     attempt_count=attempt,
                     request=request,
+                    runtime_event_dispatch=request.runtime_event_dispatch,
                     safe_abort_reason="Loop timed out.",
                     error_type="TimeoutError",
                 )
@@ -144,6 +182,7 @@ class AsyncMainLoopOrchestrator:
                     status=LoopStatus.aborted,
                     attempt_count=attempt,
                     request=request,
+                    runtime_event_dispatch=request.runtime_event_dispatch,
                     safe_abort_reason="Loop aborted after retry exhaustion.",
                     error_type=type(exc).__name__,
                 )
@@ -154,11 +193,15 @@ class AsyncMainLoopOrchestrator:
             status=LoopStatus.aborted,
             attempt_count=self.retry_policy.max_attempts,
             request=request,
+            runtime_event_dispatch=request.runtime_event_dispatch,
             safe_abort_reason="Loop aborted without a result.",
         )
 
     async def _execute_attempt(self, request: LoopRequest, attempt: int) -> LoopResult:
         executed_stages: list[LoopStage] = []
+
+        if request.runtime_event_dispatch is not None:
+            executed_stages.append(LoopStage.runtime_dispatch)
 
         executed_stages.append(LoopStage.observe)
         frame = await _resolve(self.observation_provider.observe(request, config=self.config))
@@ -200,6 +243,7 @@ class AsyncMainLoopOrchestrator:
                 recovery_snapshot=recovery_snapshot,
                 reconciliation_result=reconciliation_result,
                 policy_decision=policy_decision,
+                runtime_event_dispatch=request.runtime_event_dispatch,
                 safe_abort_reason=policy_decision.reason,
             )
 
@@ -237,8 +281,16 @@ class AsyncMainLoopOrchestrator:
             policy_decision=policy_decision,
             plan=plan,
             verification_result=verification_result,
+            runtime_event_dispatch=request.runtime_event_dispatch,
             live_execution_attempted=False,
         )
+
+    def _get_runtime_event_coordinator(self) -> RuntimeEventCoordinator:
+        if self.runtime_event_coordinator is None:
+            from universal_visual_os_agent.app.runtime_events import ObserveOnlyRuntimeEventCoordinator
+
+            self.runtime_event_coordinator = ObserveOnlyRuntimeEventCoordinator()
+        return self.runtime_event_coordinator
 
 
 async def _resolve(value: Any) -> Any:

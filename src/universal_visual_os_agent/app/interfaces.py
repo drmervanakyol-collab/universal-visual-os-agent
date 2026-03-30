@@ -6,6 +6,11 @@ from collections.abc import Awaitable
 from typing import Mapping, Protocol
 
 from universal_visual_os_agent.app.models import FrameDiff, LoopPlan, LoopRequest
+from universal_visual_os_agent.app.runtime_event_models import (
+    RuntimeEvent,
+    RuntimeEventDispatchResult,
+    RuntimeEventSubmissionResult,
+)
 from universal_visual_os_agent.actions.models import ActionIntent, ActionResult
 from universal_visual_os_agent.config.modes import AgentMode
 from universal_visual_os_agent.config.models import RunConfig
@@ -101,3 +106,17 @@ class LoopActionExecutor(Protocol):
 
     def execute(self, action: ActionIntent) -> ActionResult | Awaitable[ActionResult]:
         """Execute or simulate an action intent."""
+
+
+class RuntimeEventCoordinator(Protocol):
+    """Event-first runtime coordination contract for non-executing scaffolding."""
+
+    @property
+    def pending_count(self) -> int:
+        """Return the number of queued runtime events."""
+
+    def submit(self, event: RuntimeEvent) -> RuntimeEventSubmissionResult:
+        """Queue one runtime event for later dispatch."""
+
+    def dispatch_next(self) -> RuntimeEventDispatchResult:
+        """Build the next runtime dispatch plan from queued events."""

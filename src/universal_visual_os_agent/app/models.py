@@ -12,6 +12,7 @@ from universal_visual_os_agent.perception.models import CapturedFrame
 from universal_visual_os_agent.planning.models import PlannerDecision
 from universal_visual_os_agent.policy.models import PolicyDecision, PolicyEvaluationContext
 from universal_visual_os_agent.recovery.models import ReconciliationResult, RecoverySnapshot
+from universal_visual_os_agent.app.runtime_event_models import RuntimeEventDispatchPlan
 from universal_visual_os_agent.semantics.state import SemanticStateSnapshot
 from universal_visual_os_agent.verification.models import (
     SemanticTransitionExpectation,
@@ -22,6 +23,7 @@ from universal_visual_os_agent.verification.models import (
 class LoopStage(StrEnum):
     """Ordered stages in one orchestration attempt."""
 
+    runtime_dispatch = "runtime_dispatch"
     observe = "observe"
     diff = "diff"
     semantic_rebuild = "semantic_rebuild"
@@ -81,6 +83,7 @@ class LoopRequest:
     task_id: str | None = None
     metadata: Mapping[str, object] = field(default_factory=dict)
     policy_context: PolicyEvaluationContext | None = None
+    runtime_event_dispatch: RuntimeEventDispatchPlan | None = None
 
 
 @dataclass(slots=True, frozen=True, kw_only=True)
@@ -100,6 +103,7 @@ class LoopResult:
     plan: LoopPlan | None = None
     verification_result: VerificationResult | None = None
     action_result: ActionResult | None = None
+    runtime_event_dispatch: RuntimeEventDispatchPlan | None = None
     live_execution_attempted: bool = False
     safe_abort_reason: str | None = None
     error_type: str | None = None

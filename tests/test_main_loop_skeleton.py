@@ -11,6 +11,12 @@ from universal_visual_os_agent.app import (
     LoopStage,
     LoopStatus,
     RetryPolicy,
+    RuntimeEvent,
+    RuntimeDispatchMode,
+    RuntimeEventType,
+    RuntimeEventSource,
+    RuntimeInvalidationSignal,
+    RuntimeInvalidationScope,
 )
 from universal_visual_os_agent.app.interfaces import LoopActionExecutor
 from universal_visual_os_agent.config import AgentMode, RunConfig
@@ -325,3 +331,30 @@ def test_safe_handling_of_partial_policy_context() -> None:
 
     assert result.status is LoopStatus.aborted
     assert result.safe_abort_reason == "Policy context is incomplete."
+
+
+def test_orchestrator_can_run_next_runtime_event_without_live_execution() -> None:
+    calls: list[str] = []
+    orchestrator = _build_orchestrator(config=RunConfig(mode=AgentMode.dry_run), calls=calls)
+
+    event = RuntimeEvent(
+        event_type=RuntimeEventType.observation_invalidated,
+        source=RuntimeEventSource.test_scaffold,
+        summary="Observed frame invalidation.",
+        invalidation_signals=(
+            RuntimeInvalidationSignal(
+                scope=RuntimeInvalidationScope.frame,
+                summary="Frame changed.",
+            ),
+        ),
+    )
+
+    submission_result = asyncio.run(orchestrator.enqueue_runtime_event(event))
+    result = asyncio.run(orchestrator.run_next_runtime_event())
+
+    assert submission_result.success is True
+    assert result.status is LoopStatus.completed
+    assert result.executed_stages[0] is LoopStage.runtime_dispatch
+    assert result.runtime_event_dispatch is not None
+    assert result.runtime_event_dispatch.dispatch_mode is RuntimeDispatchMode.event_first
+    assert result.live_execution_attempted is False
