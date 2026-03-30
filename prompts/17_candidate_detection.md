@@ -125,3 +125,65 @@ Important:
 - do not make candidates actionable
 - do not add click/selection logic
 - keep the implementation tightly scoped to scoring and score explanation
+
+-----faz3------------
+
+Read `AGENTS.md`, `docs/SPEC.md`, and `docs/EXECPLAN.md`.
+
+Implement Phase 3C: safe candidate exposure.
+
+Scope:
+- do not add live input
+- do not add action execution
+- do not expand planning or policy
+- work only on exposing the generated and scored candidates in a clean, stable, observe-only form
+- keep everything strictly observe-only and read-only
+
+Current pipeline to build on:
+- full-desktop DXcam capture
+- semantic preparation
+- semantic state building
+- semantic enrichment
+- OCR enrichment
+- geometric layout / region analysis
+- semantic layout enrichment
+- non-actionable candidate generation
+- non-actionable candidate scoring
+
+Goals:
+- expose candidates in a stable, explicit, downstream-friendly structure
+- preserve non-actionable semantics
+- preserve score, score explanation, and source metadata
+- provide a safe filtered/sorted view of candidates without adding action logic
+- improve downstream usability without adding planning or click behavior
+
+Required work:
+- add candidate exposure interfaces and implementation
+- expose/scaffold a stable candidate view or result model
+- support filtering/sorting/grouping where useful, but keep it observe-only
+- preserve explicit safe failure behavior when candidate metadata is incomplete
+- do not add third-party runtime dependencies in this phase
+- keep the implementation modular and testable
+
+Tests to add/update:
+- successful scored candidate set -> exposed candidate view path
+- metadata consistency in the exposed result
+- safe handling of incomplete candidate metadata
+- no unhandled exception propagation
+- preservation of observe-only semantics
+- explicit verification that exposed candidates remain non-actionable
+
+Validation requirements:
+- run the pre-delivery self-debug loop
+- run compile/import/test validation
+- include one read-only runtime smoke test if possible
+- clearly separate:
+  - actually executed checks
+  - static reasoning only
+  - environment-specific failures
+
+Important:
+- this phase is safe candidate exposure only
+- do not make candidates actionable
+- do not add click/selection logic
+- keep the implementation tightly scoped to exposing/scaffolding candidate outputs

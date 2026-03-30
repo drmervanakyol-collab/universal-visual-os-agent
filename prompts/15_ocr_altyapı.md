@@ -123,3 +123,64 @@ Important:
 
 ----------faz3------------
 
+Read `AGENTS.md`, `docs/SPEC.md`, and `docs/EXECPLAN.md`.
+
+Implement Phase 1C: OCR enrichment on top of the completed real OCR backend integration.
+
+Scope:
+- do not add live input
+- do not add action execution
+- do not expand planning or policy
+- work only on enriching semantic state with real OCR results from the existing OCR pipeline
+- keep everything strictly observe-only and read-only
+
+Current architecture to build on:
+- PreparedSemanticTextExtractionAdapter
+- TextExtractionBackend
+- RapidOcrTextExtractionBackend
+- TextExtractionRequest
+- TextExtractionResponse
+- TextExtractionResponseStatus
+- TextExtractionResult
+- SemanticTextRegion
+- SemanticTextBlock
+- SemanticTextStatus
+- PreparedSemanticStateBuilder and current semantic state outputs
+
+Goals:
+- take successful OCR results and enrich semantic state/snapshots with them
+- connect OCR text regions and text blocks into the semantic scaffold in a clean, testable way
+- preserve non-actionable defaults throughout
+- keep structured failure behavior when OCR is unavailable or partial
+- improve semantic usefulness without adding planning/action logic
+
+Required work:
+- integrate OCR results into semantic snapshot/state structures
+- propagate OCR text and region metadata cleanly
+- preserve layout tree consistency
+- keep OCR-enriched candidates non-actionable by default
+- avoid silent failure masking
+- do not add unrelated image analysis features in this phase
+
+Tests to add/update:
+- successful OCR result -> semantic enrichment path
+- safe handling of empty OCR output
+- safe handling of partial OCR output
+- safe handling of OCR backend failure results
+- semantic snapshot consistency after enrichment
+- no unhandled exception propagation
+- preservation of observe-only semantics
+
+Validation requirements:
+- run the pre-delivery self-debug loop
+- run compile/import/test validation
+- include one read-only runtime smoke test if possible
+- clearly separate:
+  - actually executed checks
+  - static reasoning only
+  - environment-specific failures
+
+Important:
+- this phase is OCR enrichment only
+- do not make OCR-derived candidates actionable
+- keep the implementation tightly scoped to semantic enrichment from OCR output
