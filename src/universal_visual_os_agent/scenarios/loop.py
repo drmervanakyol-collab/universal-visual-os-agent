@@ -19,6 +19,11 @@ from universal_visual_os_agent.scenarios.models import (
     ScenarioStepRun,
     ScenarioStepStage,
 )
+from universal_visual_os_agent.scenarios.state_machine import (
+    InstrumentedScenarioStateMachine,
+    ScenarioFlowState,
+    ScenarioStateMachineTrace,
+)
 from universal_visual_os_agent.semantics import (
     CandidateExposureOptions,
     FullDesktopCaptureSemanticInputAdapter,
@@ -247,6 +252,35 @@ class ObserveUnderstandVerifyScenarioRunner:
                     if step.execution_eligibility
                     is ScenarioExecutionEligibility.real_click_eligible
                 ),
+                "state_transition_count": sum(
+                    0
+                    if step_run.state_machine_trace is None
+                    else len(step_run.state_machine_trace.transitions)
+                    for step_run in step_runs
+                ),
+                "step_terminal_states": tuple(
+                    (
+                        step_run.step_id,
+                        None
+                        if step_run.state_machine_trace is None
+                        or step_run.state_machine_trace.current_state is None
+                        else step_run.state_machine_trace.current_state.value,
+                    )
+                    for step_run in step_runs
+                ),
+                "blocked_step_ids": tuple(
+                    step_run.step_id
+                    for step_run in step_runs
+                    if step_run.state_machine_trace is not None
+                    and step_run.state_machine_trace.current_state is ScenarioFlowState.blocked
+                ),
+                "recovery_needed_step_ids": tuple(
+                    step_run.step_id
+                    for step_run in step_runs
+                    if step_run.state_machine_trace is not None
+                    and step_run.state_machine_trace.current_state
+                    is ScenarioFlowState.recovery_needed
+                ),
             },
         )
         return ScenarioRunResult.ok(
@@ -267,45 +301,121 @@ class ObserveUnderstandVerifyScenarioRunner:
         before_snapshot: SemanticStateSnapshot | None,
     ) -> ScenarioStepRun:
         stage_history = [ScenarioStepStage.started]
+        state_machine = InstrumentedScenarioStateMachine(
+            trace_id=f"{self.runner_name}:{step.step_id}"
+        )
         if step.status is not None and step.status.value == "invalid":
+            state_machine.transition(
+                ScenarioFlowState.aborted,
+                block_reason=step.status_reason or "Scenario step definition was invalid.",
+                next_expected_signal=None,
+                metadata={"definition_status": step.status.value},
+            )
             return self._step_run(
                 step,
                 final_stage=ScenarioStepStage.failed,
                 stage_history=tuple(stage_history + [ScenarioStepStage.failed]),
                 reason=step.status_reason or "Scenario step definition was invalid.",
                 signal_status="partial",
+                state_machine_trace=state_machine.trace(
+                    signal_status="partial",
+                    metadata={"definition_status": step.status.value},
+                ),
                 metadata={"definition_status": step.status.value},
             )
         if step.status is not None and step.status.value == "incomplete":
+            state_machine.transition(
+                ScenarioFlowState.recovery_needed,
+                block_reason=step.status_reason or "Scenario step definition was incomplete.",
+                recovery_hint="Complete the missing scenario-step definition fields before retrying.",
+                next_expected_signal="scenario_definition",
+                metadata={"definition_status": step.status.value},
+            )
             return self._step_run(
                 step,
                 final_stage=ScenarioStepStage.incomplete,
                 stage_history=tuple(stage_history + [ScenarioStepStage.incomplete]),
                 reason=step.status_reason or "Scenario step definition was incomplete.",
                 signal_status="partial",
+                state_machine_trace=state_machine.trace(
+                    signal_status="partial",
+                    metadata={"definition_status": step.status.value},
+                ),
                 metadata={"definition_status": step.status.value},
             )
 
         capture_result = self._capture_provider.capture_frame()
         if not capture_result.success or capture_result.frame is None:
+            state_machine.transition(
+                ScenarioFlowState.recovery_needed,
+                block_reason=capture_result.error_message
+                or "Capture did not provide a usable frame.",
+                recovery_hint="Retry capture when a readable frame is available.",
+                next_expected_signal="capture_frame",
+                metadata={
+                    "capture_provider_name": capture_result.provider_name,
+                    "capture_error_code": capture_result.error_code,
+                },
+            )
             return self._step_run(
                 step,
                 final_stage=ScenarioStepStage.incomplete,
                 stage_history=tuple(stage_history + [ScenarioStepStage.incomplete]),
                 reason=capture_result.error_message or "Capture did not provide a usable frame.",
                 signal_status="partial",
+                state_machine_trace=state_machine.trace(
+                    signal_status="partial",
+                    metadata={
+                        "capture_provider_name": capture_result.provider_name,
+                        "capture_error_code": capture_result.error_code,
+                    },
+                ),
                 metadata={
                     "capture_provider_name": capture_result.provider_name,
                     "capture_error_code": capture_result.error_code,
                 },
             )
         stage_history.append(ScenarioStepStage.observed)
+        state_machine.transition(
+            ScenarioFlowState.observed,
+            next_expected_signal="semantic_understanding",
+            metadata={
+                "capture_provider_name": capture_result.provider_name,
+                "frame_id": None if capture_result.frame is None else capture_result.frame.frame_id,
+            },
+        )
 
         understanding = self._understand_step(capture_result, step)
         if understanding.understood:
             stage_history.append(ScenarioStepStage.understood)
+            state_machine.transition(
+                ScenarioFlowState.understood,
+                confidence=_understanding_confidence(
+                    understanding.exposure_view,
+                    understanding.matched_candidate_ids,
+                ),
+                next_expected_signal="verification_result",
+                metadata={
+                    "matched_candidate_ids": understanding.matched_candidate_ids,
+                    "snapshot_id": (
+                        None if understanding.snapshot is None else understanding.snapshot.snapshot_id
+                    ),
+                },
+            )
         if not understanding.success:
             stage_history.append(ScenarioStepStage.incomplete)
+            state_machine.transition(
+                ScenarioFlowState.recovery_needed,
+                confidence=_understanding_confidence(
+                    understanding.exposure_view,
+                    understanding.matched_candidate_ids,
+                ),
+                block_reason=understanding.reason,
+                recovery_hint=_recovery_hint_for_understanding(understanding.details),
+                next_expected_signal=_next_expected_signal_for_understanding(understanding.details),
+                metadata=understanding.details,
+            )
+            step_signal_status = understanding.signal_status
             return self._step_run(
                 step,
                 final_stage=ScenarioStepStage.incomplete,
@@ -314,7 +424,11 @@ class ObserveUnderstandVerifyScenarioRunner:
                 observed_snapshot=understanding.snapshot,
                 exposure_view=understanding.exposure_view,
                 matched_candidate_ids=understanding.matched_candidate_ids,
-                signal_status=understanding.signal_status,
+                signal_status=step_signal_status,
+                state_machine_trace=state_machine.trace(
+                    signal_status=step_signal_status,
+                    metadata=understanding.details,
+                ),
                 metadata=understanding.details,
             )
 
@@ -329,6 +443,16 @@ class ObserveUnderstandVerifyScenarioRunner:
         )
         if verification_result.status is VerificationStatus.satisfied:
             stage_history.append(ScenarioStepStage.verified)
+            step_signal_status = understanding.signal_status
+            state_machine.transition(
+                ScenarioFlowState.verification_passed,
+                confidence=_verification_confidence(
+                    understanding.exposure_view,
+                    understanding.matched_candidate_ids,
+                ),
+                next_expected_signal="scenario_step_complete",
+                metadata={"verification_status": verification_result.status.value},
+            )
             return self._step_run(
                 step,
                 final_stage=ScenarioStepStage.verified,
@@ -338,7 +462,11 @@ class ObserveUnderstandVerifyScenarioRunner:
                 exposure_view=understanding.exposure_view,
                 verification_result=verification_result,
                 matched_candidate_ids=understanding.matched_candidate_ids,
-                signal_status=understanding.signal_status,
+                signal_status=step_signal_status,
+                state_machine_trace=state_machine.trace(
+                    signal_status=step_signal_status,
+                    metadata={"verification_status": verification_result.status.value},
+                ),
                 metadata={
                     **dict(understanding.details),
                     "verification_before_snapshot_id": transition_before.snapshot_id,
@@ -348,6 +476,17 @@ class ObserveUnderstandVerifyScenarioRunner:
             )
         if verification_result.status is VerificationStatus.unknown:
             stage_history.append(ScenarioStepStage.incomplete)
+            state_machine.transition(
+                ScenarioFlowState.recovery_needed,
+                confidence=_verification_confidence(
+                    understanding.exposure_view,
+                    understanding.matched_candidate_ids,
+                ),
+                block_reason=verification_result.summary,
+                recovery_hint="Repeat observation with more complete semantic inputs before retrying verification.",
+                next_expected_signal="capture_frame",
+                metadata={"verification_status": verification_result.status.value},
+            )
             return self._step_run(
                 step,
                 final_stage=ScenarioStepStage.incomplete,
@@ -358,6 +497,10 @@ class ObserveUnderstandVerifyScenarioRunner:
                 verification_result=verification_result,
                 matched_candidate_ids=understanding.matched_candidate_ids,
                 signal_status="partial",
+                state_machine_trace=state_machine.trace(
+                    signal_status="partial",
+                    metadata={"verification_status": verification_result.status.value},
+                ),
                 metadata={
                     **dict(understanding.details),
                     "verification_before_snapshot_id": transition_before.snapshot_id,
@@ -367,6 +510,18 @@ class ObserveUnderstandVerifyScenarioRunner:
             )
 
         stage_history.append(ScenarioStepStage.failed)
+        step_signal_status = understanding.signal_status
+        state_machine.transition(
+            ScenarioFlowState.verification_failed,
+            confidence=_verification_confidence(
+                understanding.exposure_view,
+                understanding.matched_candidate_ids,
+            ),
+            block_reason=verification_result.summary,
+            recovery_hint="Inspect the semantic delta and expected outcome before retrying the step.",
+            next_expected_signal="verification_delta",
+            metadata={"verification_status": verification_result.status.value},
+        )
         return self._step_run(
             step,
             final_stage=ScenarioStepStage.failed,
@@ -376,7 +531,11 @@ class ObserveUnderstandVerifyScenarioRunner:
             exposure_view=understanding.exposure_view,
             verification_result=verification_result,
             matched_candidate_ids=understanding.matched_candidate_ids,
-            signal_status=understanding.signal_status,
+            signal_status=step_signal_status,
+            state_machine_trace=state_machine.trace(
+                signal_status=step_signal_status,
+                metadata={"verification_status": verification_result.status.value},
+            ),
             metadata={
                 **dict(understanding.details),
                 "verification_before_snapshot_id": transition_before.snapshot_id,
@@ -549,6 +708,7 @@ class ObserveUnderstandVerifyScenarioRunner:
         verification_result=None,
         matched_candidate_ids: tuple[str, ...] = (),
         signal_status: str = "absent",
+        state_machine_trace: ScenarioStateMachineTrace | None = None,
         metadata: Mapping[str, object] | None = None,
     ) -> ScenarioStepRun:
         return ScenarioStepRun(
@@ -563,12 +723,14 @@ class ObserveUnderstandVerifyScenarioRunner:
             verification_result=verification_result,
             matched_candidate_ids=matched_candidate_ids,
             signal_status=signal_status,
+            state_machine_trace=state_machine_trace,
             observe_only=True,
             non_executing=True,
             live_execution_attempted=False,
             metadata={
                 **dict(step.metadata),
                 **({} if metadata is None else dict(metadata)),
+                **_state_machine_metadata(state_machine_trace),
                 "observe_only": True,
                 "non_executing": True,
                 "live_execution_attempted": False,
@@ -648,3 +810,80 @@ def _synthetic_before_snapshot(
             "source_snapshot_id": after_snapshot.snapshot_id,
         },
     )
+
+
+def _state_machine_metadata(
+    state_machine_trace: ScenarioStateMachineTrace | None,
+) -> Mapping[str, object]:
+    if state_machine_trace is None:
+        return {}
+    return {
+        "state_machine_trace_id": state_machine_trace.trace_id,
+        "state_machine_current_state": (
+            None
+            if state_machine_trace.current_state is None
+            else state_machine_trace.current_state.value
+        ),
+        "state_machine_transition_count": len(state_machine_trace.transitions),
+        "state_machine_state_history": tuple(
+            state.value for state in state_machine_trace.state_history
+        ),
+        "state_machine_transition_ids": tuple(
+            transition.transition_id for transition in state_machine_trace.transitions
+        ),
+    }
+
+
+def _understanding_confidence(
+    exposure_view,
+    matched_candidate_ids: tuple[str, ...],
+) -> float | None:
+    if exposure_view is None:
+        return None
+    if matched_candidate_ids:
+        for candidate in exposure_view.candidates:
+            if candidate.candidate_id == matched_candidate_ids[0]:
+                return candidate.score
+    scores = tuple(
+        candidate.score
+        for candidate in exposure_view.candidates
+        if candidate.score is not None
+    )
+    if not scores:
+        return None
+    return max(scores)
+
+
+def _verification_confidence(
+    exposure_view,
+    matched_candidate_ids: tuple[str, ...],
+) -> float | None:
+    return _understanding_confidence(exposure_view, matched_candidate_ids)
+
+
+def _recovery_hint_for_understanding(details: Mapping[str, object]) -> str:
+    understanding_stage = details.get("understanding_stage")
+    if understanding_stage == "candidate_matching":
+        return "Loosen candidate constraints or re-observe the UI so a matching candidate can be exposed."
+    if understanding_stage == "candidate_exposure":
+        return "Retry candidate exposure after a more complete scored snapshot is available."
+    if understanding_stage == "candidate_scoring":
+        return "Retry candidate scoring with complete OCR, layout, and region metadata."
+    if understanding_stage == "candidate_generation":
+        return "Retry candidate generation after semantic layout enrichment succeeds."
+    if understanding_stage == "semantic_layout_enrichment":
+        return "Retry semantic layout enrichment after layout analysis completes."
+    if understanding_stage == "layout_analysis":
+        return "Retry layout analysis with a valid enriched semantic snapshot."
+    if understanding_stage == "text_extraction":
+        return "Retry OCR extraction when text regions are available."
+    if understanding_stage == "state_build":
+        return "Retry semantic state building with a prepared capture input."
+    return "Repeat observation with more complete semantic inputs before retrying the step."
+
+
+def _next_expected_signal_for_understanding(details: Mapping[str, object]) -> str:
+    understanding_stage = details.get("understanding_stage")
+    if isinstance(understanding_stage, str) and understanding_stage:
+        return understanding_stage
+    return "semantic_understanding"

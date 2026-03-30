@@ -87,6 +87,7 @@ class _ExplodingScenarioActionRunner(ObserveActVerifyScenarioRunner):
         metrics,
         policy_context,
         execute,
+        state_machine,
     ):
         del (
             step,
@@ -97,6 +98,7 @@ class _ExplodingScenarioActionRunner(ObserveActVerifyScenarioRunner):
             metrics,
             policy_context,
             execute,
+            state_machine,
         )
         raise RuntimeError("scenario action runner exploded")
 

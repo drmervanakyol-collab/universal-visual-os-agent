@@ -10,6 +10,7 @@ from universal_visual_os_agent.scenarios.interfaces import (
     ScenarioActionRunner,
     ScenarioDefinitionBuilder,
     ScenarioRunner,
+    ScenarioStateMachine,
 )
 from universal_visual_os_agent.scenarios.loop import ObserveUnderstandVerifyScenarioRunner
 from universal_visual_os_agent.scenarios.models import (
@@ -32,11 +33,18 @@ from universal_visual_os_agent.scenarios.models import (
     ScenarioStepRun,
     ScenarioStepStage,
 )
+from universal_visual_os_agent.scenarios.state_machine import (
+    InstrumentedScenarioStateMachine,
+    ScenarioFlowState,
+    ScenarioStateMachineTrace,
+    ScenarioStateTransition,
+)
 
 __all__ = [
     "ObserveActVerifyScenarioRunner",
     "ObserveUnderstandVerifyScenarioRunner",
     "SafetyFirstScenarioDefinitionBuilder",
+    "InstrumentedScenarioStateMachine",
     "ScenarioActionDisposition",
     "ScenarioActionRun",
     "ScenarioActionRunResult",
@@ -50,10 +58,14 @@ __all__ = [
     "ScenarioDefinitionStatus",
     "ScenarioDefinitionView",
     "ScenarioExecutionEligibility",
+    "ScenarioFlowState",
     "ScenarioRun",
     "ScenarioRunResult",
     "ScenarioRunStatus",
     "ScenarioRunner",
+    "ScenarioStateMachine",
+    "ScenarioStateMachineTrace",
+    "ScenarioStateTransition",
     "ScenarioSafetyRequirement",
     "ScenarioStepDefinition",
     "ScenarioStepRun",

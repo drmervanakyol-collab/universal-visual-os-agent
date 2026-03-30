@@ -14,6 +14,7 @@ from universal_visual_os_agent.actions.models import (
     ActionSafetyGate,
     ActionTargetValidation,
 )
+from universal_visual_os_agent.scenarios.state_machine import ScenarioStateMachineTrace
 from universal_visual_os_agent.semantics.state import SemanticCandidateClass
 from universal_visual_os_agent.semantics.candidate_exposure import CandidateExposureView
 from universal_visual_os_agent.semantics.state import SemanticStateSnapshot
@@ -289,6 +290,7 @@ class ScenarioStepRun:
     verification_result: VerificationResult | None = None
     matched_candidate_ids: tuple[str, ...] = ()
     signal_status: str = "absent"
+    state_machine_trace: ScenarioStateMachineTrace | None = None
     observe_only: bool = True
     non_executing: bool = True
     live_execution_attempted: bool = False
@@ -309,6 +311,11 @@ class ScenarioStepRun:
             raise ValueError("reason must not be empty.")
         if self.signal_status not in {"available", "partial", "absent"}:
             raise ValueError("signal_status must be available, partial, or absent.")
+        if (
+            self.state_machine_trace is not None
+            and self.state_machine_trace.live_execution_attempted
+        ):
+            raise ValueError("Observe-understand-verify step traces must remain non-executing.")
         if not self.observe_only or not self.non_executing or self.live_execution_attempted:
             raise ValueError("Scenario step runs must remain observe-only and non-executing.")
 
@@ -436,6 +443,7 @@ class ScenarioActionStepRun:
     selected_candidate_id: str | None = None
     selected_intent_id: str | None = None
     signal_status: str = "absent"
+    state_machine_trace: ScenarioStateMachineTrace | None = None
     observe_only_inputs: bool = True
     safety_first: bool = True
     non_executing: bool = True
@@ -461,6 +469,13 @@ class ScenarioActionStepRun:
             raise ValueError("Scenario action step runs must preserve observe-only inputs.")
         if not self.safety_first:
             raise ValueError("Scenario action step runs must remain safety-first.")
+        if (
+            self.state_machine_trace is not None
+            and self.state_machine_trace.live_execution_attempted != self.live_execution_attempted
+        ):
+            raise ValueError(
+                "state_machine_trace.live_execution_attempted must match step live_execution_attempted."
+            )
         if self.live_execution_attempted != (
             self.action_disposition is ScenarioActionDisposition.real_click_executed
         ):
