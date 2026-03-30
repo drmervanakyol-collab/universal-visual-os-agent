@@ -17,6 +17,9 @@ from universal_visual_os_agent.semantics.ocr import (
 from universal_visual_os_agent.semantics.preparation import (
     SemanticExtractionPreparationResult,
 )
+from universal_visual_os_agent.semantics.semantic_layout_enrichment import (
+    SemanticLayoutEnrichmentResult,
+)
 from universal_visual_os_agent.semantics.state import SemanticStateSnapshot
 
 
@@ -57,3 +60,10 @@ class LayoutRegionAnalyzer(Protocol):
 
     def analyze(self, snapshot: SemanticStateSnapshot) -> LayoutRegionAnalysisResult:
         """Return a structured layout region analysis result."""
+
+
+class SemanticLayoutEnricher(Protocol):
+    """Refine geometric layout regions into stronger semantic interpretations."""
+
+    def enrich(self, snapshot: SemanticStateSnapshot) -> SemanticLayoutEnrichmentResult:
+        """Return a structured semantic layout enrichment result."""

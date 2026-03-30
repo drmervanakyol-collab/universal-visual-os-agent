@@ -32,6 +32,20 @@ class SemanticLayoutRegionKind(StrEnum):
     modal_like = "modal_like"
 
 
+class SemanticLayoutRole(StrEnum):
+    """Conservative semantic interpretations layered on top of geometric regions."""
+
+    application_surface = "application_surface"
+    header_bar = "header_bar"
+    navigation_header = "navigation_header"
+    primary_content = "primary_content"
+    footer_bar = "footer_bar"
+    status_footer = "status_footer"
+    sidebar_panel = "sidebar_panel"
+    navigation_sidebar = "navigation_sidebar"
+    dialog_overlay = "dialog_overlay"
+
+
 @dataclass(slots=True, frozen=True, kw_only=True)
 class SemanticRegionBlock:
     """A non-actionable analysis region derived from the observed frame."""
@@ -63,6 +77,7 @@ class SemanticLayoutRegion:
     label: str
     bounds: NormalizedBBox
     node_id: str | None = None
+    semantic_role: SemanticLayoutRole | None = None
     parent_region_id: str | None = None
     source_region_block_ids: tuple[str, ...] = ()
     source_text_region_ids: tuple[str, ...] = ()
