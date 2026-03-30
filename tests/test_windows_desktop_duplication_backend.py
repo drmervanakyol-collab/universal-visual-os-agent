@@ -9,6 +9,7 @@ from universal_visual_os_agent.integrations.windows import (
     RawWindowsCapture,
     WindowsCaptureBackendCapability,
     WindowsCaptureRequest,
+    WindowsCaptureRuntimeMode,
     WindowsCaptureStageError,
     WindowsCaptureTarget,
     WindowsDesktopDuplicationCaptureBackend,
@@ -165,7 +166,7 @@ def test_desktop_duplication_backend_reports_runtime_unavailable_when_os_support
     assert capability.details["runtime_supported_os"] is False
 
 
-def test_provider_reports_desktop_duplication_candidate_before_gdi_for_full_desktop_requests() -> None:
+def test_provider_does_not_silently_fall_back_to_gdi_in_production_full_desktop_mode() -> None:
     provider = WindowsObserveOnlyCaptureProvider(
         screen_metrics_provider=FakeScreenMetricsProvider(
             ScreenMetricsQueryResult.ok(provider_name="FakeScreenMetricsProvider", metrics=_single_display_metrics())
@@ -182,14 +183,40 @@ def test_provider_reports_desktop_duplication_candidate_before_gdi_for_full_desk
 
     result = provider.capture_frame()
 
-    assert result.success is True
-    assert result.details["selected_backend_name"] == "gdi_bitblt"
-    assert result.details["used_backend_name"] == "gdi_bitblt"
+    assert result.success is False
+    assert result.error_code == "capture_backend_unavailable"
+    assert result.details["runtime_mode"] == WindowsCaptureRuntimeMode.production
+    assert result.details["selected_backend_name"] is None
     candidates = result.details["backend_candidates"]
     assert candidates[0]["backend_name"] == "desktop_duplication_dxgi"
     assert candidates[0]["available"] is False
     assert candidates[0]["details"]["implementation_status"] == "capability_probe_only"
     assert candidates[1]["backend_name"] == "gdi_bitblt"
+    assert candidates[1]["runtime_eligible"] is False
+    assert candidates[1]["diagnostic_only"] is True
+
+
+def test_diagnostic_runtime_can_use_gdi_after_desktop_duplication_candidate() -> None:
+    provider = WindowsObserveOnlyCaptureProvider(
+        screen_metrics_provider=FakeScreenMetricsProvider(
+            ScreenMetricsQueryResult.ok(provider_name="FakeScreenMetricsProvider", metrics=_single_display_metrics())
+        ),
+        capture_backends=(
+            ScriptedDesktopDuplicationBackend(probe_details={}),
+            FakeCaptureBackend(
+                backend_name="gdi_bitblt",
+                capability=WindowsCaptureBackendCapability.available_backend(backend_name="gdi_bitblt"),
+                capture=_success_capture(backend_name="gdi_bitblt"),
+            ),
+        ),
+        runtime_mode=WindowsCaptureRuntimeMode.diagnostic,
+    )
+
+    result = provider.capture_frame()
+
+    assert result.success is True
+    assert result.details["selected_backend_name"] == "gdi_bitblt"
+    assert result.details["used_backend_name"] == "gdi_bitblt"
 
 
 def test_default_provider_builds_dxcam_before_gdi() -> None:

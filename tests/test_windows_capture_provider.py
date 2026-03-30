@@ -9,6 +9,7 @@ from universal_visual_os_agent.integrations.windows import (
     RawWindowsCapture,
     WindowsCaptureBackendCapability,
     WindowsCaptureRequest,
+    WindowsCaptureRuntimeMode,
     WindowsCaptureStageError,
     WindowsCaptureTarget,
     WindowsForegroundWindowPrintCaptureBackend,
@@ -201,6 +202,7 @@ def test_backend_selection_prefers_first_available_backend_and_reports_candidate
             ScreenMetricsQueryResult.ok(provider_name="FakeScreenMetricsProvider", metrics=metrics)
         ),
         capture_backends=(unavailable_backend, gdi_backend),
+        runtime_mode=WindowsCaptureRuntimeMode.diagnostic,
     )
 
     result = provider.capture_frame()
@@ -219,6 +221,40 @@ def test_backend_selection_prefers_first_available_backend_and_reports_candidate
     assert candidates[0]["available"] is False
     assert candidates[1]["backend_name"] == "gdi_bitblt"
     assert candidates[1]["available"] is True
+
+
+def test_production_runtime_skips_diagnostic_only_gdi_backend_with_stable_reason() -> None:
+    metrics = _single_display_metrics()
+    provider = WindowsObserveOnlyCaptureProvider(
+        screen_metrics_provider=FakeScreenMetricsProvider(
+            ScreenMetricsQueryResult.ok(provider_name="FakeScreenMetricsProvider", metrics=metrics)
+        ),
+        capture_backends=(
+            FakeCaptureBackend(
+                backend_name="gdi_bitblt",
+                capability=WindowsCaptureBackendCapability.available_backend(
+                    backend_name="gdi_bitblt"
+                ),
+                capture=_success_capture(backend_name="gdi_bitblt"),
+            ),
+        ),
+    )
+
+    result = provider.capture_frame()
+
+    assert result.success is False
+    assert result.error_code == "capture_backend_unavailable"
+    assert result.details["runtime_mode"] == WindowsCaptureRuntimeMode.production
+    assert result.details["selected_backend_name"] is None
+    candidate = result.details["backend_candidates"][0]
+    assert candidate["backend_name"] == "gdi_bitblt"
+    assert candidate["available"] is True
+    assert candidate["diagnostic_only"] is True
+    assert candidate["runtime_eligible"] is False
+    assert (
+        candidate["skip_reason"]
+        == "Diagnostic-only backend is disabled in the production capture runtime."
+    )
 
 
 def test_printwindow_backend_reports_unavailable_for_virtual_desktop_target() -> None:
@@ -361,6 +397,7 @@ def test_provider_distinguishes_bitmap_readback_failure_for_printwindow_backend(
                 ),
             ),
         ),
+        runtime_mode=WindowsCaptureRuntimeMode.diagnostic,
     )
 
     result = provider.capture_frame()
@@ -387,6 +424,7 @@ def test_provider_surfaces_printwindow_stage_failure_without_unhandled_exception
                 ),
             ),
         ),
+        runtime_mode=WindowsCaptureRuntimeMode.diagnostic,
     )
 
     result = provider.capture_frame()
@@ -453,6 +491,7 @@ def test_provider_uses_backend_fallback_order_explicitly() -> None:
             ScreenMetricsQueryResult.ok(provider_name="FakeScreenMetricsProvider", metrics=metrics)
         ),
         capture_backends=(first_backend, second_backend),
+        runtime_mode=WindowsCaptureRuntimeMode.diagnostic,
     )
 
     result = provider.capture_frame()
@@ -485,15 +524,18 @@ def test_capability_detection_exceptions_do_not_escape_provider() -> None:
             ScreenMetricsQueryResult.ok(provider_name="FakeScreenMetricsProvider", metrics=metrics)
         ),
         capture_backends=(failing_backend, fallback_backend),
+        runtime_mode=WindowsCaptureRuntimeMode.diagnostic,
     )
 
     result = provider.capture_frame()
 
     assert result.success is True
     candidates = result.details["backend_candidates"]
-    assert candidates[0]["backend_name"] == "broken_detector"
-    assert candidates[0]["available"] is False
-    assert candidates[0]["details"]["exception_type"] == "RuntimeError"
+    broken_detector = next(
+        candidate for candidate in candidates if candidate["backend_name"] == "broken_detector"
+    )
+    assert broken_detector["available"] is False
+    assert broken_detector["details"]["exception_type"] == "RuntimeError"
     assert result.details["used_backend_name"] == "gdi_bitblt"
 
 
@@ -508,8 +550,9 @@ def test_provider_converts_unexpected_backend_exceptions_to_safe_failure() -> No
                 backend_name="gdi_bitblt",
                 capability=WindowsCaptureBackendCapability.available_backend(backend_name="gdi_bitblt"),
                 capture_error=RuntimeError("unexpected backend failure"),
+                ),
             ),
-        ),
+        runtime_mode=WindowsCaptureRuntimeMode.diagnostic,
     )
 
     result = provider.capture_frame()
@@ -530,6 +573,7 @@ def test_foreground_window_target_skips_metrics_lookup_and_can_use_window_backen
         screen_metrics_provider=RaisingScreenMetricsProvider(),
         capture_target=WindowsCaptureTarget.foreground_window,
         capture_backends=(window_backend,),
+        runtime_mode=WindowsCaptureRuntimeMode.diagnostic,
     )
 
     result = provider.capture_frame()
@@ -566,8 +610,9 @@ def test_frame_metadata_preserves_width_height_timestamp_and_backend_metadata() 
                     captured_at=captured_at,
                     metadata={"backend_name": "gdi_bitblt", "capture_source_strategy": "screen_dc"},
                 ),
+                ),
             ),
-        ),
+        runtime_mode=WindowsCaptureRuntimeMode.diagnostic,
     )
 
     result = provider.capture_frame()

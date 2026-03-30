@@ -8,7 +8,9 @@ from datetime import UTC
 from universal_visual_os_agent.geometry import ScreenBBox, ScreenMetricsProvider
 from universal_visual_os_agent.integrations.windows.capture_backends import (
     BoundsCaptureApiBackendAdapter,
+    DefaultWindowsCaptureRuntimePolicy,
     WindowsCaptureBackend,
+    WindowsCaptureRuntimePolicy,
     WindowsScreenCaptureApi,
     select_capture_backends,
 )
@@ -17,6 +19,7 @@ from universal_visual_os_agent.integrations.windows.capture_gdi import WindowsGd
 from universal_visual_os_agent.integrations.windows.capture_models import (
     RawWindowsCapture,
     WindowsCaptureRequest,
+    WindowsCaptureRuntimeMode,
     WindowsCaptureStageError,
     WindowsCaptureTarget,
     WindowsCaptureUnavailableError,
@@ -43,6 +46,8 @@ class WindowsObserveOnlyCaptureProvider(CaptureProvider):
         capture_target: WindowsCaptureTarget = WindowsCaptureTarget.virtual_desktop,
         capture_backends: tuple[WindowsCaptureBackend, ...] | None = None,
         capture_api: WindowsScreenCaptureApi | None = None,
+        runtime_mode: WindowsCaptureRuntimeMode = WindowsCaptureRuntimeMode.production,
+        runtime_policy: WindowsCaptureRuntimePolicy | None = None,
     ) -> None:
         if capture_backends is not None and capture_api is not None:
             raise ValueError("Provide either capture_backends or capture_api, not both.")
@@ -51,6 +56,12 @@ class WindowsObserveOnlyCaptureProvider(CaptureProvider):
             WindowsScreenMetricsProvider() if screen_metrics_provider is None else screen_metrics_provider
         )
         self._capture_target = capture_target
+        self._runtime_mode = runtime_mode
+        self._runtime_policy = (
+            DefaultWindowsCaptureRuntimePolicy()
+            if runtime_policy is None
+            else runtime_policy
+        )
         self._capture_backends = self._build_capture_backends(capture_backends=capture_backends, capture_api=capture_api)
         _validate_backend_names(self._capture_backends)
 
@@ -64,7 +75,12 @@ class WindowsObserveOnlyCaptureProvider(CaptureProvider):
 
         request = prepared["request"]
         base_details = prepared["base_details"]
-        selection = select_capture_backends(self._capture_backends, request)
+        selection = select_capture_backends(
+            self._capture_backends,
+            request,
+            runtime_mode=self._runtime_mode,
+            runtime_policy=self._runtime_policy,
+        )
         selection_details = selection.to_details()
 
         if selection.selected_backend_name is None:
@@ -79,10 +95,12 @@ class WindowsObserveOnlyCaptureProvider(CaptureProvider):
                 },
             )
 
+        backends_by_name = {
+            backend.backend_name: backend for backend in self._capture_backends
+        }
         backend_attempts: list[dict[str, object]] = []
-        for backend in self._capture_backends:
-            if backend.backend_name not in selection.available_backend_names:
-                continue
+        for backend_name in selection.available_backend_names:
+            backend = backends_by_name[backend_name]
             try:
                 raw_capture = backend.capture(request)
                 raw_capture = _ensure_backend_metadata(raw_capture, backend_name=backend.backend_name)
@@ -145,6 +163,7 @@ class WindowsObserveOnlyCaptureProvider(CaptureProvider):
                     "backend_fallback_used": backend.backend_name != selection.selected_backend_name,
                     "backend_attempt_count": len(backend_attempts) + 1,
                     "backend_attempts": tuple(backend_attempts),
+                    "selected_backend_name_runtime_stable": True,
                     "capture_origin_x_px": raw_capture.origin_x_px,
                     "capture_origin_y_px": raw_capture.origin_y_px,
                 },
@@ -187,12 +206,13 @@ class WindowsObserveOnlyCaptureProvider(CaptureProvider):
                     error_code="screen_metrics_unavailable",
                     error_message=metrics_result.error_message or "Screen metrics are unavailable.",
                     details={
-                        "capture_target": self._capture_target,
-                        "metrics_lookup_succeeded": False,
-                        "metrics_required": True,
-                        "bounds_valid": False,
-                        "failing_stage": "screen_metrics_lookup",
-                        "metrics_error_code": metrics_result.error_code or "unknown",
+                "capture_target": self._capture_target,
+                "runtime_mode": self._runtime_mode,
+                "metrics_lookup_succeeded": False,
+                "metrics_required": True,
+                "bounds_valid": False,
+                "failing_stage": "screen_metrics_lookup",
+                "metrics_error_code": metrics_result.error_code or "unknown",
                     },
                 )
                 return {
@@ -210,6 +230,7 @@ class WindowsObserveOnlyCaptureProvider(CaptureProvider):
                 "display_count": len(metrics_result.metrics.displays),
                 "base_details": {
                     "capture_target": self._capture_target,
+                    "runtime_mode": self._runtime_mode,
                     "metrics_lookup_succeeded": True,
                     "metrics_required": True,
                     "bounds_valid": _bounds_are_valid(bounds),
@@ -228,6 +249,7 @@ class WindowsObserveOnlyCaptureProvider(CaptureProvider):
             "display_count": 0,
             "base_details": {
                 "capture_target": self._capture_target,
+                "runtime_mode": self._runtime_mode,
                 "metrics_lookup_succeeded": False,
                 "metrics_required": False,
                 "bounds_valid": False,

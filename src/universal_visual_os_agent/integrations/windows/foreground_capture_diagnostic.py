@@ -14,6 +14,7 @@ from typing import Mapping, Protocol, Sequence
 from universal_visual_os_agent.geometry import ScreenBBox
 from universal_visual_os_agent.integrations.windows.capture import WindowsObserveOnlyCaptureProvider
 from universal_visual_os_agent.integrations.windows.capture_models import (
+    WindowsCaptureRuntimeMode,
     WindowsCaptureStageError,
     WindowsCaptureTarget,
 )
@@ -257,6 +258,7 @@ def run_foreground_window_capture_diagnostic(
         WindowsObserveOnlyCaptureProvider(
             capture_target=WindowsCaptureTarget.foreground_window,
             capture_backends=(backend,),
+            runtime_mode=WindowsCaptureRuntimeMode.diagnostic,
         )
         if capture_provider is None
         else capture_provider

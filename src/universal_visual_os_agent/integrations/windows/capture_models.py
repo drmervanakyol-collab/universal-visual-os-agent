@@ -18,6 +18,29 @@ class WindowsCaptureTarget(StrEnum):
     foreground_window = "foreground_window"
 
 
+class WindowsCaptureRuntimeMode(StrEnum):
+    """Runtime architecture modes for the Windows capture stack."""
+
+    production = "production"
+    diagnostic = "diagnostic"
+
+
+class WindowsCaptureBackendRole(StrEnum):
+    """Architectural role for one Windows capture backend."""
+
+    primary = "primary"
+    fallback = "fallback"
+    diagnostic_only = "diagnostic_only"
+
+
+class WindowsCaptureBackendIntendedTarget(StrEnum):
+    """Target type a backend is intended to serve in the runtime architecture."""
+
+    virtual_desktop = "virtual_desktop"
+    foreground_window = "foreground_window"
+    generic = "generic"
+
+
 class WindowsCaptureUnavailableError(RuntimeError):
     """Raised when Windows screen capture APIs are unavailable."""
 
@@ -115,12 +138,116 @@ class WindowsCaptureBackendCapability:
 
 
 @dataclass(slots=True, frozen=True, kw_only=True)
+class WindowsCaptureBackendPolicy:
+    """Stable runtime-architecture metadata for one Windows capture backend."""
+
+    backend_name: str
+    role: WindowsCaptureBackendRole
+    priority: int
+    intended_target: WindowsCaptureBackendIntendedTarget
+    diagnostic_only: bool = False
+    description: str = ""
+    details: Mapping[str, object] = field(default_factory=dict)
+
+    def __post_init__(self) -> None:
+        if not self.backend_name:
+            raise ValueError("backend_name must not be empty.")
+        if self.priority <= 0:
+            raise ValueError("priority must be positive.")
+        if self.role is WindowsCaptureBackendRole.diagnostic_only and not self.diagnostic_only:
+            raise ValueError("diagnostic_only role must set diagnostic_only=True.")
+
+    @property
+    def primary(self) -> bool:
+        """Whether this backend is the primary runtime path."""
+
+        return self.role is WindowsCaptureBackendRole.primary
+
+    @property
+    def fallback(self) -> bool:
+        """Whether this backend is a fallback path."""
+
+        return self.role is WindowsCaptureBackendRole.fallback
+
+    def to_summary(self) -> dict[str, object]:
+        """Return a serializable policy summary."""
+
+        return {
+            "backend_name": self.backend_name,
+            "role": self.role.value,
+            "priority": self.priority,
+            "intended_target": self.intended_target.value,
+            "primary": self.primary,
+            "fallback": self.fallback,
+            "diagnostic_only": self.diagnostic_only,
+            "description": self.description,
+            "details": dict(self.details),
+        }
+
+
+@dataclass(slots=True, frozen=True, kw_only=True)
+class WindowsCaptureBackendEvaluation:
+    """Runtime-policy evaluation for one backend candidate."""
+
+    backend_name: str
+    role: WindowsCaptureBackendRole
+    priority: int
+    intended_target: WindowsCaptureBackendIntendedTarget
+    primary: bool
+    fallback: bool
+    diagnostic_only: bool
+    available: bool
+    capability_reason: str
+    runtime_eligible: bool
+    selected: bool = False
+    selection_reason: str | None = None
+    skip_reason: str | None = None
+    details: Mapping[str, object] = field(default_factory=dict)
+
+    def __post_init__(self) -> None:
+        if not self.backend_name:
+            raise ValueError("backend_name must not be empty.")
+        if self.priority <= 0:
+            raise ValueError("priority must be positive.")
+        if not self.capability_reason:
+            raise ValueError("capability_reason must not be empty.")
+        if self.selected and not self.runtime_eligible:
+            raise ValueError("Selected backend evaluations must be runtime eligible.")
+        if self.selected and self.selection_reason is None:
+            raise ValueError("Selected backend evaluations must include selection_reason.")
+        if not self.selected and self.skip_reason is None:
+            raise ValueError("Skipped backend evaluations must include skip_reason.")
+
+    def to_summary(self) -> dict[str, object]:
+        """Return a serializable runtime evaluation summary."""
+
+        return {
+            "backend_name": self.backend_name,
+            "role": self.role.value,
+            "priority": self.priority,
+            "intended_target": self.intended_target.value,
+            "primary": self.primary,
+            "fallback": self.fallback,
+            "diagnostic_only": self.diagnostic_only,
+            "available": self.available,
+            "capability_reason": self.capability_reason,
+            "runtime_eligible": self.runtime_eligible,
+            "selected": self.selected,
+            "selection_reason": self.selection_reason,
+            "skip_reason": self.skip_reason,
+            "details": dict(self.details),
+        }
+
+
+@dataclass(slots=True, frozen=True, kw_only=True)
 class WindowsCaptureBackendSelection:
     """Backend selection report for one read-only capture request."""
 
     request_target: WindowsCaptureTarget
-    candidates: tuple[WindowsCaptureBackendCapability, ...]
+    runtime_mode: WindowsCaptureRuntimeMode
+    candidates: tuple[WindowsCaptureBackendEvaluation, ...]
     available_backend_names: tuple[str, ...] = ()
+    capability_available_backend_names: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
         candidate_names = tuple(candidate.backend_name for candidate in self.candidates)
@@ -136,14 +263,41 @@ class WindowsCaptureBackendSelection:
 
         return None if not self.available_backend_names else self.available_backend_names[0]
 
+    @property
+    def selected_backend(self) -> WindowsCaptureBackendEvaluation | None:
+        """Return the selected backend evaluation, if any."""
+
+        selected_name = self.selected_backend_name
+        if selected_name is None:
+            return None
+        for candidate in self.candidates:
+            if candidate.backend_name == selected_name:
+                return candidate
+        return None
+
     def to_details(self) -> dict[str, object]:
         """Return a serializable selection summary."""
 
+        selected_backend = self.selected_backend
         return {
             "capture_target": self.request_target,
+            "runtime_mode": self.runtime_mode,
             "backend_candidates": tuple(candidate.to_summary() for candidate in self.candidates),
             "available_backend_names": self.available_backend_names,
+            "capability_available_backend_names": self.capability_available_backend_names,
             "selected_backend_name": self.selected_backend_name,
+            "selected_backend_role": (
+                None if selected_backend is None else selected_backend.role.value
+            ),
+            "selected_backend_priority": (
+                None if selected_backend is None else selected_backend.priority
+            ),
+            "selected_backend_intended_target": (
+                None if selected_backend is None else selected_backend.intended_target.value
+            ),
+            "selected_backend_selection_reason": (
+                None if selected_backend is None else selected_backend.selection_reason
+            ),
         }
 
 

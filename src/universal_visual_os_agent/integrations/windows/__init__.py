@@ -4,7 +4,9 @@ from universal_visual_os_agent.integrations.windows.capture import (
     WindowsObserveOnlyCaptureProvider,
 )
 from universal_visual_os_agent.integrations.windows.capture_backends import (
+    DefaultWindowsCaptureRuntimePolicy,
     WindowsCaptureBackend,
+    WindowsCaptureRuntimePolicy,
     WindowsScreenCaptureApi,
     select_capture_backends,
 )
@@ -21,8 +23,13 @@ from universal_visual_os_agent.integrations.windows.capture_gdi import (
 from universal_visual_os_agent.integrations.windows.capture_models import (
     RawWindowsCapture,
     WindowsCaptureBackendCapability,
+    WindowsCaptureBackendEvaluation,
+    WindowsCaptureBackendIntendedTarget,
+    WindowsCaptureBackendPolicy,
+    WindowsCaptureBackendRole,
     WindowsCaptureBackendSelection,
     WindowsCaptureRequest,
+    WindowsCaptureRuntimeMode,
     WindowsCaptureStageError,
     WindowsCaptureTarget,
     WindowsCaptureUnavailableError,
@@ -55,6 +62,7 @@ from universal_visual_os_agent.integrations.windows.screen_metrics import (
 __all__ = [
     "CtypesWindowsScreenCaptureApi",
     "CtypesWindowsMonitorApi",
+    "DefaultWindowsCaptureRuntimePolicy",
     "RawWindowsCapture",
     "RawWindowsMonitorMetrics",
     "DxcamBackendAttemptDiagnostic",
@@ -65,8 +73,14 @@ __all__ = [
     "ForegroundWindowMetadataResult",
     "WindowsCaptureBackend",
     "WindowsCaptureBackendCapability",
+    "WindowsCaptureBackendEvaluation",
+    "WindowsCaptureBackendIntendedTarget",
+    "WindowsCaptureBackendPolicy",
+    "WindowsCaptureBackendRole",
     "WindowsCaptureBackendSelection",
     "WindowsCaptureRequest",
+    "WindowsCaptureRuntimeMode",
+    "WindowsCaptureRuntimePolicy",
     "WindowsCaptureUnavailableError",
     "WindowsCaptureStageError",
     "WindowsCaptureTarget",
