@@ -60,8 +60,8 @@ class RunConfig:
     allow_live_input: bool = False
 
     def __post_init__(self) -> None:
-        if self.allow_live_input:
-            raise ValueError("Phase 1 does not permit real OS input.")
+        if self.allow_live_input and self.mode is not AgentMode.safe_action_mode:
+            raise ValueError("allow_live_input requires safe_action_mode.")
         if self.mode.reads_replay_source and self.replay.session_path is None:
             raise ValueError("replay_mode requires replay.session_path.")
         if self.mode.resumes_from_checkpoint and not self.persistence.enable_checkpoints:
@@ -71,7 +71,12 @@ class RunConfig:
     def should_capture_live_state(self) -> bool:
         """Whether live screen observation is expected."""
 
-        return self.mode in {AgentMode.observe_only, AgentMode.dry_run, AgentMode.recovery_mode}
+        return self.mode in {
+            AgentMode.observe_only,
+            AgentMode.dry_run,
+            AgentMode.recovery_mode,
+            AgentMode.safe_action_mode,
+        }
 
     @property
     def should_read_replay(self) -> bool:
@@ -134,4 +139,3 @@ def _optional_path(value: Any) -> Path | None:
     if value in (None, ""):
         return None
     return Path(str(value))
-

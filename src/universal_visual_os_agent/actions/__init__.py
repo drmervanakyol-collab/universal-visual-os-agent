@@ -13,6 +13,8 @@ from universal_visual_os_agent.actions.interfaces import (
     ActionExecutor,
     ActionIntentScaffolder,
     DryRunActionEngine,
+    RealClickTransport,
+    SafeClickExecutor,
 )
 from universal_visual_os_agent.actions.models import (
     ActionIntent,
@@ -23,6 +25,13 @@ from universal_visual_os_agent.actions.models import (
     ActionResult,
     ActionSafetyGate,
     ActionTargetValidation,
+)
+from universal_visual_os_agent.actions.safe_click import (
+    SafeClickExecution,
+    SafeClickExecutionResult,
+    SafeClickGateOutcome,
+    SafeClickPrototypeExecutor,
+    SafeClickPrototypeStatus,
 )
 from universal_visual_os_agent.actions.scaffolding import (
     ActionIntentScaffoldView,
@@ -52,4 +61,11 @@ __all__ = [
     "DryRunActionEvaluationView",
     "ObserveOnlyActionIntentScaffolder",
     "ObserveOnlyDryRunActionEngine",
+    "RealClickTransport",
+    "SafeClickExecution",
+    "SafeClickExecutionResult",
+    "SafeClickExecutor",
+    "SafeClickGateOutcome",
+    "SafeClickPrototypeExecutor",
+    "SafeClickPrototypeStatus",
 ]

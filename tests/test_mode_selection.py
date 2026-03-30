@@ -12,6 +12,7 @@ from universal_visual_os_agent.config import AgentMode, RunConfig
         (AgentMode.dry_run, True, False, False),
         (AgentMode.replay_mode, True, True, False),
         (AgentMode.recovery_mode, True, False, True),
+        (AgentMode.safe_action_mode, True, False, False),
     ],
 )
 def test_agent_mode_properties(
@@ -35,6 +36,13 @@ def test_recovery_mode_requires_checkpoints() -> None:
         )
 
 
-def test_phase_one_never_allows_live_input() -> None:
-    with pytest.raises(ValueError, match="Phase 1 does not permit real OS input"):
+def test_live_input_requires_safe_action_mode() -> None:
+    with pytest.raises(ValueError, match="allow_live_input requires safe_action_mode"):
         RunConfig.from_mapping({"allow_live_input": True})
+
+
+def test_safe_action_mode_can_explicitly_enable_live_input() -> None:
+    config = RunConfig.from_mapping({"mode": "safe_action_mode", "allow_live_input": True})
+
+    assert config.mode is AgentMode.safe_action_mode
+    assert config.allow_live_input is True

@@ -30,6 +30,7 @@ from universal_visual_os_agent.integrations.windows.capture_models import (
 from universal_visual_os_agent.integrations.windows.capture_printwindow import (
     WindowsForegroundWindowPrintCaptureBackend,
 )
+from universal_visual_os_agent.integrations.windows.click import WindowsUser32ClickTransport
 from universal_visual_os_agent.integrations.windows.dxcam_capture_diagnostic import (
     DxcamBackendAttemptDiagnostic,
     DxcamCaptureDiagnosticResult,
@@ -79,6 +80,7 @@ __all__ = [
     "WindowsMonitorApi",
     "WindowsScreenCaptureApi",
     "WindowsScreenMetricsProvider",
+    "WindowsUser32ClickTransport",
     "run_dxcam_capture_diagnostic",
     "run_foreground_window_capture_diagnostic",
     "select_capture_backends",

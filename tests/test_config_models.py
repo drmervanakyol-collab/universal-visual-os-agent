@@ -18,6 +18,15 @@ def test_run_config_defaults_to_observe_only_and_safe_capture() -> None:
     assert config.should_plan_actions is False
 
 
+def test_safe_action_mode_supports_live_capture_and_explicit_live_input_flag() -> None:
+    config = RunConfig.from_mapping({"mode": "safe_action_mode", "allow_live_input": True})
+
+    assert config.mode is AgentMode.safe_action_mode
+    assert config.allow_live_input is True
+    assert config.should_capture_live_state is True
+    assert config.should_plan_actions is True
+
+
 def test_run_config_from_mapping_builds_nested_sections() -> None:
     config = RunConfig.from_mapping(
         {
@@ -44,4 +53,3 @@ def test_configure_logging_returns_package_logger() -> None:
 
     assert logger.name == "universal_visual_os_agent"
     assert logger.level == logging.WARNING
-

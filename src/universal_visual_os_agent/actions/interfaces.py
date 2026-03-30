@@ -8,9 +8,13 @@ from universal_visual_os_agent.actions.dry_run import (
     DryRunActionBatchResult,
     DryRunActionEvaluationResult,
 )
+from universal_visual_os_agent.actions.safe_click import SafeClickExecutionResult
 from universal_visual_os_agent.actions.scaffolding import ActionIntentScaffoldingResult
 from universal_visual_os_agent.actions.models import ActionIntent, ActionResult
 from universal_visual_os_agent.actions.scaffolding import ActionIntentScaffoldView
+from universal_visual_os_agent.config.models import RunConfig
+from universal_visual_os_agent.geometry.models import ScreenPoint, VirtualDesktopMetrics
+from universal_visual_os_agent.policy.models import PolicyEvaluationContext
 from universal_visual_os_agent.semantics.candidate_exposure import CandidateExposureView
 from universal_visual_os_agent.semantics.state import SemanticStateSnapshot
 
@@ -52,3 +56,26 @@ class DryRunActionEngine(Protocol):
         snapshot: SemanticStateSnapshot | None = None,
     ) -> DryRunActionBatchResult:
         """Evaluate a scaffolded intent set without performing any real action."""
+
+
+class RealClickTransport(Protocol):
+    """Minimal transport for one real click after all safety gates pass."""
+
+    def click(self, point: ScreenPoint) -> None:
+        """Perform one real click at the provided screen point."""
+
+
+class SafeClickExecutor(Protocol):
+    """Contract for the minimal real safe-click prototype."""
+
+    def handle(
+        self,
+        intent: ActionIntent,
+        *,
+        config: RunConfig,
+        metrics: VirtualDesktopMetrics | None = None,
+        snapshot: SemanticStateSnapshot | None = None,
+        policy_context: PolicyEvaluationContext | None = None,
+        execute: bool = False,
+    ) -> SafeClickExecutionResult:
+        """Evaluate or execute one narrowly scoped safe-click prototype path."""
