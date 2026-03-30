@@ -236,8 +236,6 @@ def evaluate_semantic_transition(
 ) -> VerificationResult:
     """Evaluate a semantic transition against the goal-oriented verification contract."""
 
-    from universal_visual_os_agent.verification.goal_oriented import (
-        GoalOrientedSemanticVerifier,
-    )
+    from .goal_oriented import GoalOrientedSemanticVerifier
 
     return GoalOrientedSemanticVerifier().verify(expectation, transition)

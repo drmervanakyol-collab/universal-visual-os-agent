@@ -2,21 +2,19 @@
 
 from __future__ import annotations
 
-from typing import Protocol
+from typing import TYPE_CHECKING, Protocol
 
-from universal_visual_os_agent.actions.dry_run import (
-    DryRunActionBatchResult,
-    DryRunActionEvaluationResult,
-)
-from universal_visual_os_agent.actions.safe_click import SafeClickExecutionResult
-from universal_visual_os_agent.actions.scaffolding import ActionIntentScaffoldingResult
-from universal_visual_os_agent.actions.models import ActionIntent, ActionResult
-from universal_visual_os_agent.actions.scaffolding import ActionIntentScaffoldView
-from universal_visual_os_agent.config.models import RunConfig
-from universal_visual_os_agent.geometry.models import ScreenPoint, VirtualDesktopMetrics
-from universal_visual_os_agent.policy.models import PolicyEvaluationContext
-from universal_visual_os_agent.semantics.candidate_exposure import CandidateExposureView
-from universal_visual_os_agent.semantics.state import SemanticStateSnapshot
+if TYPE_CHECKING:
+    from universal_visual_os_agent.config.models import RunConfig
+    from universal_visual_os_agent.geometry.models import ScreenPoint, VirtualDesktopMetrics
+    from universal_visual_os_agent.policy.models import PolicyEvaluationContext
+    from universal_visual_os_agent.semantics.candidate_exposure import CandidateExposureView
+    from universal_visual_os_agent.semantics.state import SemanticStateSnapshot
+
+    from .dry_run import DryRunActionBatchResult, DryRunActionEvaluationResult
+    from .models import ActionIntent, ActionResult
+    from .safe_click import SafeClickExecutionResult
+    from .scaffolding import ActionIntentScaffoldView, ActionIntentScaffoldingResult
 
 
 class ActionExecutor(Protocol):

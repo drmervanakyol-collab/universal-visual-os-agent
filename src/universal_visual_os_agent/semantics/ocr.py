@@ -7,15 +7,16 @@ from datetime import datetime
 from enum import StrEnum
 from typing import TYPE_CHECKING, Mapping, Self
 
-from universal_visual_os_agent.geometry import NormalizedBBox
-from universal_visual_os_agent.perception import FrameImagePayload
-from universal_visual_os_agent.semantics.building import SemanticStateBuildResult
-from universal_visual_os_agent.semantics.ocr_enrichment import apply_ocr_semantic_enrichment
-from universal_visual_os_agent.semantics.preparation import (
+from universal_visual_os_agent.geometry.models import NormalizedBBox
+from universal_visual_os_agent.perception.models import FrameImagePayload
+
+from .building import SemanticStateBuildResult
+from .ocr_enrichment import apply_ocr_semantic_enrichment
+from .preparation import (
     SemanticExtractionInput,
     SemanticExtractionPreparationResult,
 )
-from universal_visual_os_agent.semantics.state import (
+from .state import (
     SemanticStateSnapshot,
     SemanticTextBlock,
     SemanticTextRegion,
@@ -23,7 +24,7 @@ from universal_visual_os_agent.semantics.state import (
 )
 
 if TYPE_CHECKING:
-    from universal_visual_os_agent.semantics.interfaces import TextExtractionBackend
+    from .interfaces import TextExtractionBackend
 
 
 @dataclass(slots=True, frozen=True, kw_only=True)

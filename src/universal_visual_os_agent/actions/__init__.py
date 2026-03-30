@@ -1,71 +1,112 @@
 """Action contracts."""
 
-from universal_visual_os_agent.actions.dry_run import (
-    DryRunActionBatchResult,
-    DryRunActionCheckOutcome,
-    DryRunActionDisposition,
-    DryRunActionEvaluation,
-    DryRunActionEvaluationResult,
-    DryRunActionEvaluationView,
-    ObserveOnlyDryRunActionEngine,
-)
-from universal_visual_os_agent.actions.interfaces import (
-    ActionExecutor,
-    ActionIntentScaffolder,
-    DryRunActionEngine,
-    RealClickTransport,
-    SafeClickExecutor,
-)
-from universal_visual_os_agent.actions.models import (
-    ActionIntent,
-    ActionIntentReasonCode,
-    ActionIntentStatus,
-    ActionPrecondition,
-    ActionRequirementStatus,
-    ActionResult,
-    ActionSafetyGate,
-    ActionTargetValidation,
-)
-from universal_visual_os_agent.actions.safe_click import (
-    SafeClickExecution,
-    SafeClickExecutionResult,
-    SafeClickGateOutcome,
-    SafeClickPrototypeExecutor,
-    SafeClickPrototypeStatus,
-)
-from universal_visual_os_agent.actions.scaffolding import (
-    ActionIntentScaffoldView,
-    ActionIntentScaffoldingResult,
-    ObserveOnlyActionIntentScaffolder,
-)
+from __future__ import annotations
 
-__all__ = [
-    "ActionExecutor",
-    "ActionIntent",
-    "ActionIntentReasonCode",
-    "ActionIntentScaffoldView",
-    "ActionIntentScaffolder",
-    "ActionIntentScaffoldingResult",
-    "ActionIntentStatus",
-    "ActionPrecondition",
-    "ActionRequirementStatus",
-    "ActionResult",
-    "ActionSafetyGate",
-    "ActionTargetValidation",
-    "DryRunActionBatchResult",
-    "DryRunActionCheckOutcome",
-    "DryRunActionDisposition",
-    "DryRunActionEngine",
-    "DryRunActionEvaluation",
-    "DryRunActionEvaluationResult",
-    "DryRunActionEvaluationView",
-    "ObserveOnlyActionIntentScaffolder",
-    "ObserveOnlyDryRunActionEngine",
-    "RealClickTransport",
-    "SafeClickExecution",
-    "SafeClickExecutionResult",
-    "SafeClickExecutor",
-    "SafeClickGateOutcome",
-    "SafeClickPrototypeExecutor",
-    "SafeClickPrototypeStatus",
-]
+from importlib import import_module
+from typing import TYPE_CHECKING
+
+_EXPORT_MODULES = {
+    ".interfaces": (
+        "ActionExecutor",
+        "ActionIntentScaffolder",
+        "DryRunActionEngine",
+        "RealClickTransport",
+        "SafeClickExecutor",
+    ),
+    ".models": (
+        "ActionIntent",
+        "ActionIntentReasonCode",
+        "ActionIntentStatus",
+        "ActionPrecondition",
+        "ActionRequirementStatus",
+        "ActionResult",
+        "ActionSafetyGate",
+        "ActionTargetValidation",
+    ),
+    ".dry_run": (
+        "DryRunActionBatchResult",
+        "DryRunActionCheckOutcome",
+        "DryRunActionDisposition",
+        "DryRunActionEvaluation",
+        "DryRunActionEvaluationResult",
+        "DryRunActionEvaluationView",
+        "ObserveOnlyDryRunActionEngine",
+    ),
+    ".safe_click": (
+        "SafeClickExecution",
+        "SafeClickExecutionResult",
+        "SafeClickGateOutcome",
+        "SafeClickPrototypeExecutor",
+        "SafeClickPrototypeStatus",
+    ),
+    ".scaffolding": (
+        "ActionIntentScaffoldView",
+        "ActionIntentScaffoldingResult",
+        "ObserveOnlyActionIntentScaffolder",
+    ),
+}
+_EXPORTS = {
+    name: module_name
+    for module_name, names in _EXPORT_MODULES.items()
+    for name in names
+}
+
+__all__ = tuple(name for names in _EXPORT_MODULES.values() for name in names)
+
+
+def __getattr__(name: str) -> object:
+    """Lazily resolve public action exports to reduce package import coupling."""
+
+    module_name = _EXPORTS.get(name)
+    if module_name is None:
+        raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+    value = getattr(import_module(module_name, __name__), name)
+    globals()[name] = value
+    return value
+
+
+def __dir__() -> list[str]:
+    """Return a stable view of module globals plus lazy exports."""
+
+    return sorted((*globals(), *__all__))
+
+
+if TYPE_CHECKING:
+    from .dry_run import (
+        DryRunActionBatchResult,
+        DryRunActionCheckOutcome,
+        DryRunActionDisposition,
+        DryRunActionEvaluation,
+        DryRunActionEvaluationResult,
+        DryRunActionEvaluationView,
+        ObserveOnlyDryRunActionEngine,
+    )
+    from .interfaces import (
+        ActionExecutor,
+        ActionIntentScaffolder,
+        DryRunActionEngine,
+        RealClickTransport,
+        SafeClickExecutor,
+    )
+    from .models import (
+        ActionIntent,
+        ActionIntentReasonCode,
+        ActionIntentStatus,
+        ActionPrecondition,
+        ActionRequirementStatus,
+        ActionResult,
+        ActionSafetyGate,
+        ActionTargetValidation,
+    )
+    from .safe_click import (
+        SafeClickExecution,
+        SafeClickExecutionResult,
+        SafeClickGateOutcome,
+        SafeClickPrototypeExecutor,
+        SafeClickPrototypeStatus,
+    )
+    from .scaffolding import (
+        ActionIntentScaffoldView,
+        ActionIntentScaffoldingResult,
+        ObserveOnlyActionIntentScaffolder,
+    )

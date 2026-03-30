@@ -2,13 +2,14 @@
 
 from __future__ import annotations
 
-from typing import Protocol
+from typing import TYPE_CHECKING, Protocol
 
-from universal_visual_os_agent.verification.models import (
-    SemanticStateTransition,
-    SemanticTransitionExpectation,
-    VerificationResult,
-)
+if TYPE_CHECKING:
+    from .models import (
+        SemanticStateTransition,
+        SemanticTransitionExpectation,
+        VerificationResult,
+    )
 
 
 class SemanticTransitionVerifier(Protocol):

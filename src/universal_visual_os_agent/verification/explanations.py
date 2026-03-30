@@ -6,7 +6,7 @@ from collections import Counter
 from dataclasses import replace
 
 from universal_visual_os_agent.semantics.semantic_delta import SemanticDeltaCategory
-from universal_visual_os_agent.verification.models import (
+from .models import (
     CandidateScoreDeltaDirection,
     ExpectedSemanticOutcome,
     SemanticOutcomeVerification,
@@ -22,13 +22,13 @@ from universal_visual_os_agent.verification.models import (
 
 _CATEGORY_PRIORITY = {
     VerificationReasonCategory.missing_input: 0,
-    VerificationReasonCategory.partial_input: 1,
-    VerificationReasonCategory.unexpected_change_detected: 2,
-    VerificationReasonCategory.score_change_not_satisfied: 3,
-    VerificationReasonCategory.metadata_expectation_not_met: 4,
-    VerificationReasonCategory.expected_change_not_found: 5,
-    VerificationReasonCategory.ambiguous_result: 6,
-    VerificationReasonCategory.expected_change_observed: 7,
+    VerificationReasonCategory.unexpected_change_detected: 1,
+    VerificationReasonCategory.score_change_not_satisfied: 2,
+    VerificationReasonCategory.metadata_expectation_not_met: 3,
+    VerificationReasonCategory.expected_change_not_found: 4,
+    VerificationReasonCategory.expected_change_observed: 5,
+    VerificationReasonCategory.partial_input: 6,
+    VerificationReasonCategory.ambiguous_result: 7,
 }
 
 
@@ -144,7 +144,24 @@ class ObserveOnlyVerificationExplainer:
                 )
             )
 
-        if result.semantic_delta is not None and result.semantic_delta.signal_status == "partial":
+        needs_result_level_partial_input = (
+            result.semantic_delta is not None
+            and result.semantic_delta.signal_status == "partial"
+            and (
+                not enriched_outcomes
+                or result.status is VerificationStatus.unknown
+                or any(
+                    verification.primary_reason_category
+                    in {
+                        VerificationReasonCategory.missing_input,
+                        VerificationReasonCategory.partial_input,
+                        VerificationReasonCategory.ambiguous_result,
+                    }
+                    for verification in enriched_outcomes
+                )
+            )
+        )
+        if needs_result_level_partial_input:
             explanations.append(
                 _result_explanation(
                     category=VerificationReasonCategory.partial_input,

@@ -2,38 +2,21 @@
 
 from __future__ import annotations
 
-from typing import Protocol
+from typing import TYPE_CHECKING, Protocol
 
-from universal_visual_os_agent.perception.models import CaptureResult
-from universal_visual_os_agent.semantics.building import SemanticStateBuildResult
-from universal_visual_os_agent.semantics.candidate_generation import (
-    CandidateGenerationResult,
-)
-from universal_visual_os_agent.semantics.candidate_exposure import (
-    CandidateExposureOptions,
-    CandidateExposureResult,
-)
-from universal_visual_os_agent.semantics.candidate_scoring import (
-    CandidateScoringResult,
-)
-from universal_visual_os_agent.semantics.layout_region_analysis import (
-    LayoutRegionAnalysisResult,
-)
-from universal_visual_os_agent.semantics.ocr import (
-    TextExtractionRequest,
-    TextExtractionResponse,
-    TextExtractionResult,
-)
-from universal_visual_os_agent.semantics.preparation import (
-    SemanticExtractionPreparationResult,
-)
-from universal_visual_os_agent.semantics.semantic_delta import (
-    SemanticDeltaResult,
-)
-from universal_visual_os_agent.semantics.semantic_layout_enrichment import (
-    SemanticLayoutEnrichmentResult,
-)
-from universal_visual_os_agent.semantics.state import SemanticStateSnapshot
+if TYPE_CHECKING:
+    from universal_visual_os_agent.perception.models import CaptureResult
+
+    from .building import SemanticStateBuildResult
+    from .candidate_exposure import CandidateExposureOptions, CandidateExposureResult
+    from .candidate_generation import CandidateGenerationResult
+    from .candidate_scoring import CandidateScoringResult
+    from .layout_region_analysis import LayoutRegionAnalysisResult
+    from .ocr import TextExtractionRequest, TextExtractionResponse, TextExtractionResult
+    from .preparation import SemanticExtractionPreparationResult
+    from .semantic_delta import SemanticDeltaResult
+    from .semantic_layout_enrichment import SemanticLayoutEnrichmentResult
+    from .state import SemanticStateSnapshot
 
 
 class SemanticExtractionInputAdapter(Protocol):

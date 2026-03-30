@@ -7,25 +7,27 @@ from enum import StrEnum
 from math import floor
 from typing import TYPE_CHECKING, Mapping, Self
 
-from universal_visual_os_agent.actions.dry_run import (
-    DryRunActionDisposition,
-    DryRunActionEvaluation,
-    ObserveOnlyDryRunActionEngine,
-)
-from universal_visual_os_agent.actions.models import ActionIntent, ActionRequirementStatus
-from universal_visual_os_agent.config import AgentMode, RunConfig
+from universal_visual_os_agent.config.modes import AgentMode
+from universal_visual_os_agent.config.models import RunConfig
 from universal_visual_os_agent.geometry.models import ScreenPoint, VirtualDesktopMetrics
-from universal_visual_os_agent.policy import (
+from universal_visual_os_agent.policy.interfaces import PolicyEngine
+from universal_visual_os_agent.policy.models import (
     PolicyContextCompleteness,
     PolicyDecision,
     PolicyEvaluationContext,
-    PolicyEngine,
     PolicyVerdict,
 )
 from universal_visual_os_agent.semantics.state import SemanticStateSnapshot
 
+from .dry_run import (
+    DryRunActionDisposition,
+    DryRunActionEvaluation,
+    ObserveOnlyDryRunActionEngine,
+)
+from .models import ActionIntent, ActionRequirementStatus
+
 if TYPE_CHECKING:
-    from universal_visual_os_agent.actions.interfaces import RealClickTransport
+    from .interfaces import RealClickTransport
 
 
 class SafeClickPrototypeStatus(StrEnum):

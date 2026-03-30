@@ -6,19 +6,17 @@ from collections import Counter
 from dataclasses import replace
 from typing import Mapping
 
-from universal_visual_os_agent.semantics import ObserveOnlySemanticDeltaComparator
 from universal_visual_os_agent.semantics.interfaces import SemanticDeltaComparator
 from universal_visual_os_agent.semantics.semantic_delta import (
+    ObserveOnlySemanticDeltaComparator,
     SemanticDelta,
     SemanticDeltaCategory,
     SemanticDeltaChange,
     SemanticDeltaChangeType,
 )
-from universal_visual_os_agent.verification.explanations import (
-    ObserveOnlyVerificationExplainer,
-)
-from universal_visual_os_agent.verification.interfaces import VerificationExplainer
-from universal_visual_os_agent.verification.models import (
+from .explanations import ObserveOnlyVerificationExplainer
+from .interfaces import VerificationExplainer
+from .models import (
     CandidateScoreDeltaDirection,
     ExpectedSemanticChange,
     ExpectedSemanticOutcome,
