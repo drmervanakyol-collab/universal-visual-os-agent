@@ -7,6 +7,7 @@ from universal_visual_os_agent.semantics import (
     SemanticCandidate,
     SemanticLayoutTree,
     SemanticNode,
+    SemanticRegionBlock,
     SemanticStateSnapshot,
 )
 from universal_visual_os_agent.verification import (
@@ -61,6 +62,17 @@ def test_semantic_snapshot_rejects_duplicate_candidate_ids() -> None:
 
     with pytest.raises(ValueError, match="candidate identifiers must be unique"):
         SemanticStateSnapshot(candidates=(candidate, candidate))
+
+
+def test_semantic_snapshot_rejects_duplicate_region_block_ids() -> None:
+    block = SemanticRegionBlock(
+        block_id="region-1",
+        label="Analysis Region",
+        bounds=_button_bounds(),
+    )
+
+    with pytest.raises(ValueError, match="region block identifiers must be unique"):
+        SemanticStateSnapshot(region_blocks=(block, block))
 
 
 def test_verification_contract_satisfied_when_required_state_is_present() -> None:

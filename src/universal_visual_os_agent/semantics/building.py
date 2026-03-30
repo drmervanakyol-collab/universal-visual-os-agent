@@ -13,11 +13,15 @@ from universal_visual_os_agent.semantics.preparation import (
 )
 from universal_visual_os_agent.semantics.state import (
     SemanticCandidate,
+    SemanticRegionBlock,
     SemanticStateSnapshot,
 )
 
 _FULL_FRAME_BOUNDS = NormalizedBBox(left=0.0, top=0.0, width=1.0, height=1.0)
 _VIRTUAL_DESKTOP_TARGET = "virtual_desktop"
+_TOP_REGION_BOUNDS = NormalizedBBox(left=0.0, top=0.0, width=1.0, height=0.2)
+_MIDDLE_REGION_BOUNDS = NormalizedBBox(left=0.0, top=0.2, width=1.0, height=0.6)
+_BOTTOM_REGION_BOUNDS = NormalizedBBox(left=0.0, top=0.8, width=1.0, height=0.2)
 
 
 @dataclass(slots=True, frozen=True, kw_only=True)
@@ -108,6 +112,14 @@ class PreparedSemanticStateBuilder:
                 details={"preparation_adapter_name": preparation_result.adapter_name},
             )
 
+        if extraction_input.payload is None:
+            return SemanticStateBuildResult.failure(
+                builder_name=self.builder_name,
+                error_code="payload_unavailable",
+                error_message="Semantic state building requires a prepared frame payload.",
+                details={"frame_id": extraction_input.frame_id},
+            )
+
         missing_metadata_fields = _missing_snapshot_metadata_fields(
             extraction_input.snapshot_preparation.metadata
         )
@@ -162,7 +174,19 @@ class PreparedSemanticStateBuilder:
     ) -> SemanticStateSnapshot:
         root_node_id = f"{extraction_input.frame_id}:desktop-root"
         surface_node_id = f"{extraction_input.frame_id}:capture-surface"
-        candidate_id = f"{extraction_input.frame_id}:desktop-surface"
+        region_blocks = _build_region_blocks(extraction_input)
+        region_nodes = tuple(
+            SemanticNode(
+                node_id=block.node_id or f"{block.block_id}:node",
+                role=block.role,
+                name=block.label,
+                bounds=block.bounds,
+                visible=block.visible,
+                enabled=block.enabled,
+                attributes=dict(block.metadata),
+            )
+            for block in region_blocks
+        )
 
         root_node = SemanticNode(
             node_id=root_node_id,
@@ -190,41 +214,82 @@ class PreparedSemanticStateBuilder:
                         "row_stride_bytes": extraction_input.payload.row_stride_bytes,
                         "width": extraction_input.width,
                         "height": extraction_input.height,
+                        "semantic_scaffold_kind": "capture_surface",
                     },
+                    children=region_nodes,
                 ),
             ),
         )
         layout_tree = SemanticLayoutTree(root=root_node, display_id="virtual_desktop")
-        candidates = (
+        candidates = tuple(
             SemanticCandidate(
-                candidate_id=candidate_id,
-                label="Observed Desktop Surface",
-                bounds=_FULL_FRAME_BOUNDS,
-                node_id=surface_node_id,
-                role="capture_surface",
+                candidate_id=f"{block.block_id}:candidate",
+                label=block.label,
+                bounds=block.bounds,
+                node_id=block.node_id,
+                role=block.role,
                 confidence=1.0,
+                visible=block.visible,
                 enabled=False,
                 metadata={
+                    **dict(block.metadata),
                     "observe_only": True,
                     "semantic_origin": "prepared_capture_scaffold",
                     "backend_name": extraction_input.backend_name,
                     "frame_id": extraction_input.frame_id,
+                    "region_block_id": block.block_id,
+                    "analysis_only": True,
                 },
-            ),
+            )
+            for block in region_blocks
         )
         return SemanticStateSnapshot(
             layout_tree=layout_tree,
+            region_blocks=region_blocks,
             candidates=candidates,
             observed_at=extraction_input.snapshot_preparation.observed_at,
             metadata={
                 **dict(extraction_input.snapshot_preparation.metadata),
                 "semantic_builder_name": self.builder_name,
                 "semantic_scaffold": True,
+                "semantic_scaffold_version": "enriched-v1",
                 "layout_root_node_id": root_node_id,
                 "capture_surface_node_id": surface_node_id,
+                "region_block_ids": tuple(block.block_id for block in region_blocks),
                 "candidate_ids": tuple(candidate.candidate_id for candidate in candidates),
             },
         )
+
+
+def _build_region_blocks(
+    extraction_input: SemanticExtractionInput,
+) -> tuple[SemanticRegionBlock, ...]:
+    region_specs = (
+        ("full", "Observed Desktop Surface", "capture_surface", _FULL_FRAME_BOUNDS),
+        ("top-band", "Top Analysis Band", "analysis_region", _TOP_REGION_BOUNDS),
+        ("middle-band", "Middle Analysis Band", "analysis_region", _MIDDLE_REGION_BOUNDS),
+        ("bottom-band", "Bottom Analysis Band", "analysis_region", _BOTTOM_REGION_BOUNDS),
+    )
+    return tuple(
+        SemanticRegionBlock(
+            block_id=f"{extraction_input.frame_id}:{region_key}",
+            label=label,
+            bounds=bounds,
+            node_id=f"{extraction_input.frame_id}:{region_key}",
+            role=role,
+            enabled=False,
+            metadata={
+                "observe_only": True,
+                "analysis_only": True,
+                "region_key": region_key,
+                "semantic_scaffold_kind": "capture_region",
+                "backend_name": extraction_input.backend_name,
+                "frame_id": extraction_input.frame_id,
+                "display_count": extraction_input.display_count,
+            },
+        )
+        for region_key, label, role, bounds in region_specs
+    )
 
 
 def _missing_snapshot_metadata_fields(

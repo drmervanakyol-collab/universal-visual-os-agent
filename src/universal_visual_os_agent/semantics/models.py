@@ -15,7 +15,11 @@ from universal_visual_os_agent.semantics.preparation import (
     SemanticExtractionPreparationResult,
     SemanticSnapshotPreparation,
 )
-from universal_visual_os_agent.semantics.state import SemanticCandidate, SemanticStateSnapshot
+from universal_visual_os_agent.semantics.state import (
+    SemanticCandidate,
+    SemanticRegionBlock,
+    SemanticStateSnapshot,
+)
 
 __all__ = [
     "FullDesktopCaptureSemanticInputAdapter",
@@ -26,6 +30,7 @@ __all__ = [
     "SemanticExtractionPreparationResult",
     "SemanticLayoutTree",
     "SemanticNode",
+    "SemanticRegionBlock",
     "SemanticStateBuildResult",
     "SemanticStateBuilder",
     "SemanticSnapshotPreparation",

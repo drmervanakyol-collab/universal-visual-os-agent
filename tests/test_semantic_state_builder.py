@@ -13,6 +13,7 @@ from universal_visual_os_agent.semantics import (
     PreparedSemanticStateBuilder,
     SemanticExtractionInput,
     SemanticExtractionPreparationResult,
+    SemanticRegionBlock,
     SemanticSnapshotPreparation,
 )
 
@@ -69,16 +70,42 @@ def test_prepared_capture_input_builds_semantic_state_snapshot() -> None:
     assert tuple(node.node_id for node in result.snapshot.layout_tree.walk()) == (
         "frame-dxcam-2:desktop-root",
         "frame-dxcam-2:capture-surface",
+        "frame-dxcam-2:full",
+        "frame-dxcam-2:top-band",
+        "frame-dxcam-2:middle-band",
+        "frame-dxcam-2:bottom-band",
     )
     assert result.snapshot.layout_tree.find_node("frame-dxcam-2:capture-surface") is not None
-    assert len(result.snapshot.candidates) == 1
-    candidate = result.snapshot.candidates[0]
-    assert candidate.node_id == "frame-dxcam-2:capture-surface"
-    assert candidate.role == "capture_surface"
-    assert candidate.actionable is False
+    assert len(result.snapshot.region_blocks) == 4
+    assert all(isinstance(block, SemanticRegionBlock) for block in result.snapshot.region_blocks)
+    assert [block.block_id for block in result.snapshot.region_blocks] == [
+        "frame-dxcam-2:full",
+        "frame-dxcam-2:top-band",
+        "frame-dxcam-2:middle-band",
+        "frame-dxcam-2:bottom-band",
+    ]
+    assert len(result.snapshot.candidates) == 4
+    assert all(candidate.actionable is False for candidate in result.snapshot.candidates)
+    assert all(candidate.enabled is False for candidate in result.snapshot.candidates)
+    assert all(candidate.metadata["observe_only"] is True for candidate in result.snapshot.candidates)
+    assert all(candidate.metadata["analysis_only"] is True for candidate in result.snapshot.candidates)
+    assert result.snapshot.candidates[0].role == "capture_surface"
+    assert result.snapshot.candidates[1].role == "analysis_region"
     assert result.snapshot.metadata["semantic_builder_name"] == "PreparedSemanticStateBuilder"
     assert result.snapshot.metadata["semantic_scaffold"] is True
-    assert result.snapshot.metadata["candidate_ids"] == ("frame-dxcam-2:desktop-surface",)
+    assert result.snapshot.metadata["semantic_scaffold_version"] == "enriched-v1"
+    assert result.snapshot.metadata["region_block_ids"] == (
+        "frame-dxcam-2:full",
+        "frame-dxcam-2:top-band",
+        "frame-dxcam-2:middle-band",
+        "frame-dxcam-2:bottom-band",
+    )
+    assert result.snapshot.metadata["candidate_ids"] == (
+        "frame-dxcam-2:full:candidate",
+        "frame-dxcam-2:top-band:candidate",
+        "frame-dxcam-2:middle-band:candidate",
+        "frame-dxcam-2:bottom-band:candidate",
+    )
 
 
 def test_builder_handles_failed_preparation_result_safely() -> None:
@@ -134,6 +161,27 @@ def test_builder_handles_partial_preparation_input_safely() -> None:
     assert result.details["missing_snapshot_metadata_fields"] == (
         "capture_backend_name",
         "display_count",
+    )
+
+
+def test_enriched_layout_tree_preserves_parent_child_consistency() -> None:
+    preparation = FullDesktopCaptureSemanticInputAdapter().prepare(_capture_result())
+
+    result = PreparedSemanticStateBuilder().build(preparation)
+
+    assert result.success is True
+    assert result.snapshot is not None
+    tree = result.snapshot.layout_tree
+    assert tree is not None
+    root = tree.root
+    assert len(root.children) == 1
+    surface = root.children[0]
+    assert surface.node_id == "frame-dxcam-2:capture-surface"
+    assert tuple(child.node_id for child in surface.children) == (
+        "frame-dxcam-2:full",
+        "frame-dxcam-2:top-band",
+        "frame-dxcam-2:middle-band",
+        "frame-dxcam-2:bottom-band",
     )
 
 
