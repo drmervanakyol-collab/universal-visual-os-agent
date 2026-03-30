@@ -27,8 +27,16 @@ from universal_visual_os_agent.ai_architecture.contracts import (
     ResolverResponseBindResult,
     ResolverResponseContract,
 )
+from universal_visual_os_agent.ai_architecture.escalation_engine import (
+    DeterministicEscalationDecision,
+    DeterministicEscalationDisposition,
+    DeterministicEscalationEvaluationResult,
+    DeterministicEscalationReason,
+    ObserveOnlyDeterministicEscalationEngine,
+)
 from universal_visual_os_agent.ai_architecture.interfaces import (
     AiArbitrator,
+    DeterministicEscalationEngine,
     EscalationPolicyDecider,
     PlannerContractBuilder,
     ResolverContractBuilder,
@@ -54,9 +62,15 @@ __all__ = [
     "ArbitrationSource",
     "ArbitrationStatus",
     "EscalationAction",
+    "DeterministicEscalationDecision",
+    "DeterministicEscalationDisposition",
+    "DeterministicEscalationEngine",
+    "DeterministicEscalationEvaluationResult",
+    "DeterministicEscalationReason",
     "EscalationDecision",
     "EscalationPolicy",
     "EscalationPolicyDecider",
+    "ObserveOnlyDeterministicEscalationEngine",
     "ObserveOnlyAiArbitrator",
     "ObserveOnlyEscalationPolicyDecider",
     "ObserveOnlyPlannerContractBuilder",

@@ -1,4 +1,4 @@
-"""Interfaces for shared AI ontology, contracts, and arbitration scaffolding."""
+"""Interfaces for shared AI ontology, contracts, arbitration, and escalation."""
 
 from __future__ import annotations
 
@@ -17,6 +17,9 @@ from universal_visual_os_agent.ai_architecture.contracts import (
     ResolverResponseContract,
     ResolverRequestBuildResult,
     ResolverResponseBindResult,
+)
+from universal_visual_os_agent.ai_architecture.escalation_engine import (
+    DeterministicEscalationEvaluationResult,
 )
 from universal_visual_os_agent.ai_architecture.ontology import (
     SharedCandidateOntologyBinding,
@@ -113,6 +116,21 @@ class EscalationPolicyDecider(Protocol):
         policy: EscalationPolicy | None = None,
     ) -> EscalationDecision:
         """Return a structured escalation recommendation."""
+
+
+class DeterministicEscalationEngine(Protocol):
+    """Decide the next conservative escalation path without executing anything."""
+
+    def evaluate(
+        self,
+        *,
+        deterministic_binding: SharedCandidateOntologyBinding | None,
+        resolver_response: ResolverResponseContract | None = None,
+        planner_response: PlannerResponseContract | None = None,
+        conflicts: tuple[ArbitrationConflict, ...] = (),
+        policy: EscalationPolicy | None = None,
+    ) -> DeterministicEscalationEvaluationResult:
+        """Return a failure-safe deterministic escalation decision."""
 
 
 class AiArbitrator(Protocol):
