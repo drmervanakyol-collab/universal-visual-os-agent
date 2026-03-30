@@ -18,6 +18,12 @@ from universal_visual_os_agent.ai_architecture.contracts import (
     ResolverRequestBuildResult,
     ResolverResponseBindResult,
 )
+from universal_visual_os_agent.ai_architecture.cloud_planner import (
+    CloudPlannerOutputContract,
+    CloudPlannerRequest,
+    CloudPlannerRequestBuildResult,
+    CloudPlannerResponseBindResult,
+)
 from universal_visual_os_agent.ai_architecture.escalation_engine import (
     DeterministicEscalationDecision,
     DeterministicEscalationEvaluationResult,
@@ -39,12 +45,15 @@ from universal_visual_os_agent.ai_boundary.models import (
     CloudPlannerContract,
     LocalVisualResolverContract,
 )
+from universal_visual_os_agent.actions.scaffolding_models import ActionIntentScaffoldView
+from universal_visual_os_agent.scenarios.models import ScenarioDefinition
 from universal_visual_os_agent.semantics.candidate_exposure import (
     CandidateExposureView,
     ExposedCandidate,
 )
 from universal_visual_os_agent.semantics.state import SemanticCandidate, SemanticStateSnapshot
 from universal_visual_os_agent.verification.models import SemanticTransitionExpectation
+from universal_visual_os_agent.verification.models import VerificationResult
 
 
 class SharedOntologyBinder(Protocol):
@@ -168,6 +177,32 @@ class LocalVisualResolverScaffolder(Protocol):
         contract: LocalVisualResolverOutputContract,
     ) -> LocalVisualResolverResponseBindResult:
         """Return a failure-safe local visual resolver response binding result."""
+
+
+class CloudPlannerScaffolder(Protocol):
+    """Build and bind future cloud-planner scaffolding safely."""
+
+    def build_request(
+        self,
+        snapshot: SemanticStateSnapshot,
+        exposure_view: CandidateExposureView,
+        *,
+        user_objective_summary: str,
+        request_id: str,
+        scenario_definition: ScenarioDefinition | None = None,
+        verification_result: VerificationResult | None = None,
+        action_scaffold_view: ActionIntentScaffoldView | None = None,
+        escalation_decision: DeterministicEscalationDecision | None = None,
+    ) -> CloudPlannerRequestBuildResult:
+        """Return a failure-safe cloud planner request scaffold."""
+
+    def bind_response(
+        self,
+        request: CloudPlannerRequest,
+        *,
+        contract: CloudPlannerOutputContract,
+    ) -> CloudPlannerResponseBindResult:
+        """Return a failure-safe cloud planner response binding result."""
 
 
 class AiArbitrator(Protocol):
