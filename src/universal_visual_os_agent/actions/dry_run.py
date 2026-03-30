@@ -24,6 +24,10 @@ from universal_visual_os_agent.actions.dry_run_models import (
     DryRunActionEvaluationView,
 )
 from universal_visual_os_agent.actions.scaffolding_models import ActionIntentScaffoldView
+from universal_visual_os_agent.actions.tool_boundary import ObserveOnlyActionToolBoundaryGuard
+from universal_visual_os_agent.actions.tool_boundary_models import (
+    ActionToolBoundaryEvaluationResult,
+)
 
 
 class ObserveOnlyDryRunActionEngine:
@@ -31,6 +35,15 @@ class ObserveOnlyDryRunActionEngine:
 
     engine_name = "ObserveOnlyDryRunActionEngine"
     supported_action_types = frozenset({"candidate_select"})
+
+    def __init__(
+        self,
+        *,
+        tool_boundary_guard: ObserveOnlyActionToolBoundaryGuard | None = None,
+    ) -> None:
+        self._tool_boundary_guard = tool_boundary_guard or ObserveOnlyActionToolBoundaryGuard(
+            supported_dry_run_action_types=self.supported_action_types,
+        )
 
     def evaluate_intent(
         self,
@@ -194,6 +207,20 @@ class ObserveOnlyDryRunActionEngine:
         *,
         snapshot: SemanticStateSnapshot | None,
     ) -> DryRunActionEvaluation:
+        boundary_result = self._tool_boundary_guard.evaluate_intent_for_dry_run(
+            intent,
+            snapshot=snapshot,
+        )
+        if not boundary_result.success or (
+            boundary_result.assessment is not None
+            and not boundary_result.assessment.accepted
+        ):
+            return _boundary_rejected_evaluation(
+                intent,
+                snapshot=snapshot,
+                boundary_result=boundary_result,
+            )
+
         rejection_reasons = _rejection_reasons(
             intent,
             supported_action_types=self.supported_action_types,
@@ -293,6 +320,87 @@ def _view_signal_status(
     ):
         return "partial"
     return "available"
+
+
+def _boundary_rejected_evaluation(
+    intent: ActionIntent,
+    *,
+    snapshot: SemanticStateSnapshot | None,
+    boundary_result: ActionToolBoundaryEvaluationResult,
+) -> DryRunActionEvaluation:
+    assessment = boundary_result.assessment
+    if assessment is None:
+        blocking_reasons = (
+            boundary_result.error_message
+            or "The final tool-boundary guard could not validate the intent.",
+        )
+        metadata = {
+            **dict(intent.metadata),
+            "dry_run_evaluated": True,
+            "dry_run_engine_name": ObserveOnlyDryRunActionEngine.engine_name,
+            "dry_run_disposition": DryRunActionDisposition.rejected.value,
+            "evaluated_with_snapshot": snapshot is not None,
+            "evaluation_snapshot_id": None if snapshot is None else snapshot.snapshot_id,
+            "source_intent_status": intent.status.value,
+            "would_execute": False,
+            "non_executing": True,
+            "simulated": True,
+            "tool_boundary_guard_name": boundary_result.guard_name,
+            "tool_boundary_success": False,
+            "tool_boundary_error_code": boundary_result.error_code,
+            "tool_boundary_error_message": boundary_result.error_message,
+        }
+        return DryRunActionEvaluation(
+            intent_id=intent.intent_id,
+            action_type=intent.action_type,
+            disposition=DryRunActionDisposition.rejected,
+            summary="Final tool boundary rejected the intent before dry-run handling.",
+            source_intent_status=intent.status,
+            candidate_id=intent.candidate_id,
+            would_execute=False,
+            simulated=True,
+            non_executing=True,
+            blocking_reasons=blocking_reasons,
+            metadata=metadata,
+        )
+
+    blocking_reasons = tuple(
+        outcome.reason
+        for outcome in assessment.check_outcomes
+        if outcome.status is ActionRequirementStatus.blocked
+    )
+    metadata = {
+        **dict(intent.metadata),
+        "dry_run_evaluated": True,
+        "dry_run_engine_name": ObserveOnlyDryRunActionEngine.engine_name,
+        "dry_run_disposition": DryRunActionDisposition.rejected.value,
+        "evaluated_with_snapshot": snapshot is not None,
+        "evaluation_snapshot_id": None if snapshot is None else snapshot.snapshot_id,
+        "source_intent_status": intent.status.value,
+        "would_execute": False,
+        "non_executing": True,
+        "simulated": True,
+        "tool_boundary_guard_name": boundary_result.guard_name,
+        "tool_boundary_success": True,
+        "tool_boundary_surface": assessment.surface.value,
+        "tool_boundary_status": assessment.status.value,
+        "tool_boundary_blocked_check_ids": assessment.blocked_check_ids,
+        "tool_boundary_blocking_codes": tuple(code.value for code in assessment.blocking_codes),
+        "tool_boundary_pending_check_ids": assessment.metadata.get("pending_check_ids", ()),
+    }
+    return DryRunActionEvaluation(
+        intent_id=intent.intent_id,
+        action_type=intent.action_type,
+        disposition=DryRunActionDisposition.rejected,
+        summary="Final tool boundary rejected the intent before dry-run handling.",
+        source_intent_status=intent.status,
+        candidate_id=intent.candidate_id,
+        would_execute=False,
+        simulated=True,
+        non_executing=True,
+        blocking_reasons=blocking_reasons,
+        metadata=metadata,
+    )
 
 
 def _rejection_reasons(

@@ -15,16 +15,13 @@ from universal_visual_os_agent.policy.models import (
     PolicyContextCompleteness,
     PolicyDecision,
     PolicyEvaluationContext,
-    PolicyVerdict,
 )
 from universal_visual_os_agent.semantics.state import SemanticStateSnapshot
 
 from .dry_run import ObserveOnlyDryRunActionEngine
-from .dry_run_models import (
-    DryRunActionDisposition,
-    DryRunActionEvaluation,
-)
+from .dry_run_models import DryRunActionEvaluation
 from .models import ActionIntent, ActionRequirementStatus
+from .tool_boundary import ObserveOnlyActionToolBoundaryGuard
 
 if TYPE_CHECKING:
     from .interfaces import RealClickTransport
@@ -164,6 +161,7 @@ class SafeClickPrototypeExecutor:
         policy_engine: PolicyEngine,
         dry_run_engine: ObserveOnlyDryRunActionEngine | None = None,
         click_transport: RealClickTransport | None = None,
+        tool_boundary_guard: ObserveOnlyActionToolBoundaryGuard | None = None,
         minimum_confidence: float = 0.9,
         maximum_candidate_rank: int = 5,
         allowed_candidate_classes: frozenset[str] | None = None,
@@ -177,6 +175,11 @@ class SafeClickPrototypeExecutor:
             frozenset({"button_like"})
             if allowed_candidate_classes is None
             else allowed_candidate_classes
+        )
+        self._tool_boundary_guard = tool_boundary_guard or ObserveOnlyActionToolBoundaryGuard(
+            allowed_safe_click_candidate_classes=self._allowed_candidate_classes,
+            minimum_safe_click_confidence=self._minimum_confidence,
+            maximum_safe_click_candidate_rank=self._maximum_candidate_rank,
         )
 
     def handle(
@@ -224,6 +227,7 @@ class SafeClickPrototypeExecutor:
                 dry_run_evaluation=dry_run_evaluation,
                 target_screen_point=target_screen_point,
                 policy_decision=policy_decision,
+                snapshot=snapshot,
                 execute=execute,
             )
             blocked_gate_ids = tuple(
@@ -371,187 +375,34 @@ class SafeClickPrototypeExecutor:
         dry_run_evaluation: DryRunActionEvaluation,
         target_screen_point: ScreenPoint | None,
         policy_decision: PolicyDecision | None,
+        snapshot: SemanticStateSnapshot | None,
         execute: bool,
     ) -> tuple[SafeClickGateOutcome, ...]:
-        candidate_class = intent.metadata.get("candidate_class")
-        completeness_status = intent.metadata.get("candidate_exposure_completeness_status")
-        eligible_class = isinstance(candidate_class, str) and candidate_class in self._allowed_candidate_classes
-        eligible_rank = intent.candidate_rank is not None and intent.candidate_rank <= self._maximum_candidate_rank
-        eligible_score = (
-            intent.candidate_score is not None
-            and intent.candidate_score >= self._minimum_confidence
+        boundary_result = self._tool_boundary_guard.evaluate_intent_for_safe_click(
+            intent,
+            config=config,
+            target_screen_point=target_screen_point,
+            dry_run_evaluation=dry_run_evaluation,
+            policy_decision=policy_decision,
+            snapshot=snapshot,
+            execute=execute,
+            click_transport_available=self._click_transport is not None,
         )
-        policy_allowed = policy_decision is not None and policy_decision.verdict is PolicyVerdict.allow
+        if not boundary_result.success or boundary_result.assessment is None:
+            raise RuntimeError(
+                boundary_result.error_message
+                or "Safe click prototype could not evaluate the final tool boundary."
+            )
 
-        return (
+        return tuple(
             _gate_outcome(
-                gate_id="real_click_mode_enabled",
-                summary="Real click mode requires safe_action_mode plus allow_live_input=True.",
-                status=(
-                    ActionRequirementStatus.satisfied
-                    if _real_click_mode_enabled(config)
-                    else ActionRequirementStatus.blocked
-                ),
-                reason=(
-                    "Real click mode is explicitly enabled."
-                    if _real_click_mode_enabled(config)
-                    else "RunConfig did not explicitly enable the real click prototype."
-                ),
-                metadata={"mode": config.mode.value, "allow_live_input": config.allow_live_input},
-            ),
-            _gate_outcome(
-                gate_id="supported_action_type",
-                summary="Only candidate_select intents are supported by the click prototype.",
-                status=(
-                    ActionRequirementStatus.satisfied
-                    if intent.action_type == "candidate_select"
-                    else ActionRequirementStatus.blocked
-                ),
-                reason=(
-                    "Intent action type is supported."
-                    if intent.action_type == "candidate_select"
-                    else "Intent action type is outside the minimal click prototype."
-                ),
-                metadata={"action_type": intent.action_type},
-            ),
-            _gate_outcome(
-                gate_id="explicit_candidate_allowlist",
-                summary="Only top-ranked button-like candidates are explicitly eligible.",
-                status=(
-                    ActionRequirementStatus.satisfied
-                    if eligible_class and eligible_rank
-                    else ActionRequirementStatus.blocked
-                ),
-                reason=(
-                    "Candidate matched the explicit prototype allowlist."
-                    if eligible_class and eligible_rank
-                    else "Candidate did not match the explicit prototype allowlist."
-                ),
-                metadata={
-                    "candidate_class": candidate_class,
-                    "candidate_rank": intent.candidate_rank,
-                    "allowed_candidate_classes": tuple(sorted(self._allowed_candidate_classes)),
-                    "maximum_candidate_rank": self._maximum_candidate_rank,
-                },
-            ),
-            _gate_outcome(
-                gate_id="candidate_complete",
-                summary="Candidate must be scaffolded and have complete exposure metadata.",
-                status=(
-                    ActionRequirementStatus.satisfied
-                    if intent.status is not None
-                    and intent.status.value == "scaffolded"
-                    and completeness_status == "available"
-                    else ActionRequirementStatus.blocked
-                ),
-                reason=(
-                    "Candidate metadata is complete for the click prototype."
-                    if intent.status is not None
-                    and intent.status.value == "scaffolded"
-                    and completeness_status == "available"
-                    else "Candidate metadata is incomplete for the click prototype."
-                ),
-                metadata={
-                    "intent_status": intent.status.value,
-                    "candidate_exposure_completeness_status": completeness_status,
-                },
-            ),
-            _gate_outcome(
-                gate_id="candidate_score_threshold",
-                summary="Candidate confidence must meet the real-click threshold.",
-                status=(
-                    ActionRequirementStatus.satisfied
-                    if eligible_score
-                    else ActionRequirementStatus.blocked
-                ),
-                reason=(
-                    "Candidate confidence met the real-click threshold."
-                    if eligible_score
-                    else "Candidate confidence was too low for the real-click prototype."
-                ),
-                metadata={
-                    "candidate_score": intent.candidate_score,
-                    "minimum_confidence": self._minimum_confidence,
-                },
-            ),
-            _gate_outcome(
-                gate_id="dry_run_would_execute",
-                summary="Dry-run evaluation must conclude that the intent would execute safely.",
-                status=(
-                    ActionRequirementStatus.satisfied
-                    if dry_run_evaluation.disposition is DryRunActionDisposition.would_execute
-                    else ActionRequirementStatus.blocked
-                ),
-                reason=(
-                    "Dry-run evaluation allowed the intent."
-                    if dry_run_evaluation.disposition is DryRunActionDisposition.would_execute
-                    else f"Dry-run evaluation blocked the intent: {dry_run_evaluation.summary}"
-                ),
-                metadata={"dry_run_disposition": dry_run_evaluation.disposition.value},
-            ),
-            _gate_outcome(
-                gate_id="target_screen_point_available",
-                summary="A validated screen click target must be available.",
-                status=(
-                    ActionRequirementStatus.satisfied
-                    if target_screen_point is not None
-                    else ActionRequirementStatus.blocked
-                ),
-                reason=(
-                    "A screen click target was derived from the normalized intent target."
-                    if target_screen_point is not None
-                    else "No validated screen click target was available."
-                ),
-                metadata={
-                    "has_normalized_target": intent.target is not None,
-                    "target_screen_point": (
-                        None
-                        if target_screen_point is None
-                        else (target_screen_point.x_px, target_screen_point.y_px)
-                    ),
-                },
-            ),
-            _gate_outcome(
-                gate_id="policy_allow",
-                summary="Policy must explicitly allow the live click attempt.",
-                status=(
-                    ActionRequirementStatus.pending
-                    if not _real_click_mode_enabled(config)
-                    else (
-                        ActionRequirementStatus.satisfied
-                        if policy_allowed
-                        else ActionRequirementStatus.blocked
-                    )
-                ),
-                reason=(
-                    "Policy was not consulted because real click mode is disabled."
-                    if not _real_click_mode_enabled(config)
-                    else (
-                        "Policy allowed the live click attempt."
-                        if policy_allowed
-                        else f"Policy blocked the live click attempt: {policy_decision.reason if policy_decision else 'no policy decision'}"
-                    )
-                ),
-                metadata={
-                    "policy_verdict": None if policy_decision is None else policy_decision.verdict.value,
-                    "policy_reason": None if policy_decision is None else policy_decision.reason,
-                },
-            ),
-            _gate_outcome(
-                gate_id="click_transport_available",
-                summary="A real click transport must be present when execution is requested.",
-                status=(
-                    ActionRequirementStatus.satisfied
-                    if (not execute or self._click_transport is not None)
-                    else ActionRequirementStatus.blocked
-                ),
-                reason=(
-                    "Click transport is available for the requested path."
-                    if (not execute or self._click_transport is not None)
-                    else "Execution was requested without a real click transport."
-                ),
-                metadata={"execute_requested": execute},
-            ),
+                gate_id=outcome.check_id,
+                summary=outcome.summary,
+                status=outcome.status,
+                reason=outcome.reason,
+                metadata=outcome.metadata,
+            )
+            for outcome in boundary_result.assessment.check_outcomes
         )
 
 

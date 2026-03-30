@@ -5,16 +5,28 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Protocol
 
 if TYPE_CHECKING:
+    from universal_visual_os_agent.ai_boundary.models import (
+        ValidatedLocalVisualResolverOutput,
+        ValidatedPlannerActionSuggestion,
+    )
     from universal_visual_os_agent.config.models import RunConfig
     from universal_visual_os_agent.geometry.models import ScreenPoint, VirtualDesktopMetrics
-    from universal_visual_os_agent.policy.models import PolicyEvaluationContext
+    from universal_visual_os_agent.policy.models import PolicyDecision, PolicyEvaluationContext
     from universal_visual_os_agent.semantics.candidate_exposure import CandidateExposureView
     from universal_visual_os_agent.semantics.state import SemanticStateSnapshot
 
-    from .dry_run_models import DryRunActionBatchResult, DryRunActionEvaluationResult
+    from .dry_run_models import (
+        DryRunActionBatchResult,
+        DryRunActionEvaluation,
+        DryRunActionEvaluationResult,
+    )
     from .models import ActionIntent, ActionResult
     from .safe_click import SafeClickExecutionResult
     from .scaffolding_models import ActionIntentScaffoldView, ActionIntentScaffoldingResult
+    from .tool_boundary_models import (
+        ActionToolBoundaryEvaluationResult,
+        ActionToolBoundarySurface,
+    )
 
 
 class ActionExecutor(Protocol):
@@ -61,6 +73,48 @@ class RealClickTransport(Protocol):
 
     def click(self, point: ScreenPoint) -> None:
         """Perform one real click at the provided screen point."""
+
+
+class ActionToolBoundaryGuard(Protocol):
+    """Final eligibility guard between structured artifacts and tool surfaces."""
+
+    def evaluate_planner_action_suggestion_for_surface(
+        self,
+        suggestion: ValidatedPlannerActionSuggestion,
+        *,
+        surface: ActionToolBoundarySurface,
+    ) -> ActionToolBoundaryEvaluationResult:
+        """Reject direct structured planner outputs unless they are rebound safely."""
+
+    def evaluate_resolver_output_for_surface(
+        self,
+        output: ValidatedLocalVisualResolverOutput,
+        *,
+        surface: ActionToolBoundarySurface,
+    ) -> ActionToolBoundaryEvaluationResult:
+        """Reject direct structured resolver outputs unless they are rebound safely."""
+
+    def evaluate_intent_for_dry_run(
+        self,
+        intent: ActionIntent,
+        *,
+        snapshot: SemanticStateSnapshot | None = None,
+    ) -> ActionToolBoundaryEvaluationResult:
+        """Validate a scaffolded intent before it reaches the dry-run engine."""
+
+    def evaluate_intent_for_safe_click(
+        self,
+        intent: ActionIntent,
+        *,
+        config: RunConfig,
+        target_screen_point: ScreenPoint | None,
+        dry_run_evaluation: DryRunActionEvaluation,
+        policy_decision: PolicyDecision | None,
+        snapshot: SemanticStateSnapshot | None = None,
+        execute: bool = False,
+        click_transport_available: bool = False,
+    ) -> ActionToolBoundaryEvaluationResult:
+        """Validate a scaffolded intent before it reaches the safe-click prototype."""
 
 
 class SafeClickExecutor(Protocol):

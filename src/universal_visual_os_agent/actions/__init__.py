@@ -9,6 +9,7 @@ _EXPORT_MODULES = {
     ".interfaces": (
         "ActionExecutor",
         "ActionIntentScaffolder",
+        "ActionToolBoundaryGuard",
         "DryRunActionEngine",
         "RealClickTransport",
         "SafeClickExecutor",
@@ -47,6 +48,18 @@ _EXPORT_MODULES = {
     ),
     ".scaffolding": (
         "ObserveOnlyActionIntentScaffolder",
+    ),
+    ".tool_boundary_models": (
+        "ActionToolBoundaryAssessment",
+        "ActionToolBoundaryBlockCode",
+        "ActionToolBoundaryCheckOutcome",
+        "ActionToolBoundaryEvaluationResult",
+        "ActionToolBoundarySourceKind",
+        "ActionToolBoundaryStatus",
+        "ActionToolBoundarySurface",
+    ),
+    ".tool_boundary": (
+        "ObserveOnlyActionToolBoundaryGuard",
     ),
 }
 _EXPORTS = {
@@ -88,6 +101,7 @@ if TYPE_CHECKING:
     from .interfaces import (
         ActionExecutor,
         ActionIntentScaffolder,
+        ActionToolBoundaryGuard,
         DryRunActionEngine,
         RealClickTransport,
         SafeClickExecutor,
@@ -113,4 +127,14 @@ if TYPE_CHECKING:
     from .scaffolding_models import (
         ActionIntentScaffoldView,
         ActionIntentScaffoldingResult,
+    )
+    from .tool_boundary import ObserveOnlyActionToolBoundaryGuard
+    from .tool_boundary_models import (
+        ActionToolBoundaryAssessment,
+        ActionToolBoundaryBlockCode,
+        ActionToolBoundaryCheckOutcome,
+        ActionToolBoundaryEvaluationResult,
+        ActionToolBoundarySourceKind,
+        ActionToolBoundaryStatus,
+        ActionToolBoundarySurface,
     )

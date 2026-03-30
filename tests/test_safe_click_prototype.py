@@ -10,7 +10,11 @@ from universal_visual_os_agent.actions import (
     SafeClickPrototypeStatus,
 )
 from universal_visual_os_agent.config import AgentMode, RunConfig
-from universal_visual_os_agent.geometry import ScreenMetrics, VirtualDesktopMetrics
+from universal_visual_os_agent.geometry import (
+    NormalizedPoint,
+    ScreenMetrics,
+    VirtualDesktopMetrics,
+)
 from universal_visual_os_agent.policy import (
     ProtectedContextAssessment,
     ProtectedContextStatus,
@@ -181,6 +185,42 @@ def test_safe_click_prototype_preserves_simulated_allowed_path() -> None:
     assert result.execution.executed is False
     assert result.execution.simulated is True
     assert result.execution.target_screen_point is not None
+    assert transport.points == []
+
+
+def test_safe_click_prototype_blocks_invalid_target_candidate_binding_at_final_boundary() -> None:
+    snapshot, intent = _eligible_button_intent()
+    assert intent.target is not None
+    assert intent.candidate_id is not None
+    candidate = snapshot.get_candidate(intent.candidate_id)
+    assert candidate is not None
+    candidate_right = candidate.bounds.left + candidate.bounds.width
+    if candidate_right <= 0.98:
+        invalid_x = min(1.0, candidate_right + 0.01)
+    else:
+        invalid_x = max(0.0, candidate.bounds.left - 0.01)
+    tampered_intent = replace(
+        intent,
+        target=NormalizedPoint(x=invalid_x, y=intent.target.y),
+    )
+    transport = _RecordingClickTransport()
+    executor = SafeClickPrototypeExecutor(
+        policy_engine=_policy_engine(),
+        click_transport=transport,
+    )
+
+    result = executor.handle(
+        tampered_intent,
+        config=RunConfig(mode=AgentMode.safe_action_mode, allow_live_input=True),
+        metrics=_virtual_metrics(),
+        snapshot=snapshot,
+        execute=True,
+    )
+
+    assert result.success is True
+    assert result.execution is not None
+    assert result.execution.status is SafeClickPrototypeStatus.blocked
+    assert "target_candidate_binding" in result.execution.blocked_gate_ids
     assert transport.points == []
 
 

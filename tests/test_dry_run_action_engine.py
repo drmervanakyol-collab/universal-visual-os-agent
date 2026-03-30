@@ -12,6 +12,7 @@ from universal_visual_os_agent.actions import (
     ObserveOnlyActionIntentScaffolder,
     ObserveOnlyDryRunActionEngine,
 )
+from universal_visual_os_agent.geometry import NormalizedPoint
 
 
 class _ExplodingDryRunActionEngine(ObserveOnlyDryRunActionEngine):
@@ -168,6 +169,37 @@ def test_dry_run_action_engine_revalidates_target_requirements_against_snapshot(
         in blocked_evaluation.failed_target_validation_ids
     )
     assert blocked_evaluation.metadata["evaluation_snapshot_id"] == "changed-snapshot"
+
+
+def test_dry_run_action_engine_rejects_invalid_target_candidate_binding_at_final_boundary() -> None:
+    snapshot, scaffold_view = _scaffold_view()
+    intent = scaffold_view.intents[0]
+    assert intent.candidate_id is not None
+    assert intent.target is not None
+    candidate = snapshot.get_candidate(intent.candidate_id)
+    assert candidate is not None
+
+    candidate_right = candidate.bounds.left + candidate.bounds.width
+    if candidate_right <= 0.98:
+        invalid_x = min(1.0, candidate_right + 0.01)
+    else:
+        invalid_x = max(0.0, candidate.bounds.left - 0.01)
+    tampered_intent = replace(
+        intent,
+        target=NormalizedPoint(x=invalid_x, y=intent.target.y),
+    )
+
+    result = ObserveOnlyDryRunActionEngine().evaluate_intent(
+        tampered_intent,
+        snapshot=snapshot,
+    )
+
+    assert result.success is True
+    assert result.evaluation is not None
+    assert result.evaluation.disposition is DryRunActionDisposition.rejected
+    assert "Normalized target no longer matched the bound candidate geometry." in result.evaluation.blocking_reasons
+    assert "target_candidate_binding" in result.evaluation.metadata["tool_boundary_blocked_check_ids"]
+    assert "target_candidate_mismatch" in result.evaluation.metadata["tool_boundary_blocking_codes"]
 
 
 def test_dry_run_action_engine_preserves_non_executing_semantics() -> None:
