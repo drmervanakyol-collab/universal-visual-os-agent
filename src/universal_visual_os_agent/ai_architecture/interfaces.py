@@ -1,4 +1,4 @@
-"""Interfaces for shared AI ontology, contracts, arbitration, and escalation."""
+"""Interfaces for shared AI ontology, contracts, arbitration, escalation, and resolver scaffolding."""
 
 from __future__ import annotations
 
@@ -19,9 +19,18 @@ from universal_visual_os_agent.ai_architecture.contracts import (
     ResolverResponseBindResult,
 )
 from universal_visual_os_agent.ai_architecture.escalation_engine import (
+    DeterministicEscalationDecision,
     DeterministicEscalationEvaluationResult,
 )
+from universal_visual_os_agent.ai_architecture.local_visual_resolver import (
+    LocalVisualResolverOutputContract,
+    LocalVisualResolverRequest,
+    LocalVisualResolverRequestBuildResult,
+    LocalVisualResolverResponseBindResult,
+    LocalVisualResolverTaskType,
+)
 from universal_visual_os_agent.ai_architecture.ontology import (
+    SharedCandidateLabel,
     SharedCandidateOntologyBinding,
     SharedOntologyBindingResult,
     SharedTargetLabel,
@@ -131,6 +140,34 @@ class DeterministicEscalationEngine(Protocol):
         policy: EscalationPolicy | None = None,
     ) -> DeterministicEscalationEvaluationResult:
         """Return a failure-safe deterministic escalation decision."""
+
+
+class LocalVisualResolverScaffolder(Protocol):
+    """Build and bind future local visual resolver scaffolding safely."""
+
+    def build_request(
+        self,
+        snapshot: SemanticStateSnapshot,
+        exposure_view: CandidateExposureView,
+        *,
+        candidate_ids: tuple[str, ...],
+        summary: str,
+        request_id: str,
+        task_type: LocalVisualResolverTaskType = LocalVisualResolverTaskType.choose_candidate,
+        expected_target_label: SharedTargetLabel = SharedTargetLabel.candidate_center,
+        allowed_candidate_labels: tuple[SharedCandidateLabel, ...] = (),
+        escalation_decision: DeterministicEscalationDecision | None = None,
+        scenario_id: str | None = None,
+    ) -> LocalVisualResolverRequestBuildResult:
+        """Return a failure-safe local visual resolver request scaffold."""
+
+    def bind_response(
+        self,
+        request: LocalVisualResolverRequest,
+        *,
+        contract: LocalVisualResolverOutputContract,
+    ) -> LocalVisualResolverResponseBindResult:
+        """Return a failure-safe local visual resolver response binding result."""
 
 
 class AiArbitrator(Protocol):
