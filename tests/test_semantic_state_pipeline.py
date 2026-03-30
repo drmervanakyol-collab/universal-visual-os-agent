@@ -9,6 +9,7 @@ from universal_visual_os_agent.semantics import (
     SemanticNode,
     SemanticRegionBlock,
     SemanticStateSnapshot,
+    SemanticTextRegion,
 )
 from universal_visual_os_agent.verification import (
     SemanticStateTransition,
@@ -73,6 +74,17 @@ def test_semantic_snapshot_rejects_duplicate_region_block_ids() -> None:
 
     with pytest.raises(ValueError, match="region block identifiers must be unique"):
         SemanticStateSnapshot(region_blocks=(block, block))
+
+
+def test_semantic_snapshot_rejects_duplicate_text_region_ids() -> None:
+    text_region = SemanticTextRegion(
+        region_id="text-1",
+        label="Detected Text Region",
+        bounds=_button_bounds(),
+    )
+
+    with pytest.raises(ValueError, match="text region identifiers must be unique"):
+        SemanticStateSnapshot(text_regions=(text_region, text_region))
 
 
 def test_verification_contract_satisfied_when_required_state_is_present() -> None:

@@ -7,8 +7,15 @@ from universal_visual_os_agent.semantics.building import (
 from universal_visual_os_agent.semantics.interfaces import (
     SemanticExtractionInputAdapter,
     SemanticStateBuilder,
+    TextExtractionAdapter,
 )
 from universal_visual_os_agent.semantics.layout import SemanticLayoutTree, SemanticNode
+from universal_visual_os_agent.semantics.ocr import (
+    PreparedSemanticTextExtractionAdapter,
+    TextExtractionRegionRequest,
+    TextExtractionRequest,
+    TextExtractionResult,
+)
 from universal_visual_os_agent.semantics.preparation import (
     FullDesktopCaptureSemanticInputAdapter,
     SemanticExtractionInput,
@@ -19,11 +26,14 @@ from universal_visual_os_agent.semantics.state import (
     SemanticCandidate,
     SemanticRegionBlock,
     SemanticStateSnapshot,
+    SemanticTextRegion,
+    SemanticTextStatus,
 )
 
 __all__ = [
     "FullDesktopCaptureSemanticInputAdapter",
     "PreparedSemanticStateBuilder",
+    "PreparedSemanticTextExtractionAdapter",
     "SemanticCandidate",
     "SemanticExtractionInput",
     "SemanticExtractionInputAdapter",
@@ -31,8 +41,14 @@ __all__ = [
     "SemanticLayoutTree",
     "SemanticNode",
     "SemanticRegionBlock",
+    "SemanticTextRegion",
+    "SemanticTextStatus",
     "SemanticStateBuildResult",
     "SemanticStateBuilder",
     "SemanticSnapshotPreparation",
     "SemanticStateSnapshot",
+    "TextExtractionAdapter",
+    "TextExtractionRegionRequest",
+    "TextExtractionRequest",
+    "TextExtractionResult",
 ]

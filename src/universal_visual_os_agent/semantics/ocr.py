@@ -1,0 +1,303 @@
+"""OCR/text extraction scaffolding on top of the observe-only semantic pipeline."""
+
+from __future__ import annotations
+
+from datetime import datetime
+from dataclasses import dataclass, field, replace
+from typing import Mapping, Self
+
+from universal_visual_os_agent.geometry import NormalizedBBox
+from universal_visual_os_agent.perception import FrameImagePayload
+from universal_visual_os_agent.semantics.building import SemanticStateBuildResult
+from universal_visual_os_agent.semantics.preparation import (
+    SemanticExtractionInput,
+    SemanticExtractionPreparationResult,
+)
+from universal_visual_os_agent.semantics.state import (
+    SemanticStateSnapshot,
+    SemanticTextRegion,
+    SemanticTextStatus,
+)
+
+
+@dataclass(slots=True, frozen=True, kw_only=True)
+class TextExtractionRegionRequest:
+    """One OCR-ready region request derived from semantic scaffold state."""
+
+    region_id: str
+    label: str
+    bounds: NormalizedBBox
+    node_id: str | None = None
+    block_id: str | None = None
+    role: str = "text_region"
+    metadata: Mapping[str, object] = field(default_factory=dict)
+
+    def __post_init__(self) -> None:
+        if not self.region_id:
+            raise ValueError("region_id must not be empty.")
+        if not self.label:
+            raise ValueError("label must not be empty.")
+        if not self.role:
+            raise ValueError("role must not be empty.")
+
+
+@dataclass(slots=True, frozen=True, kw_only=True)
+class TextExtractionRequest:
+    """Prepared OCR/text extraction request for a future backend."""
+
+    frame_id: str
+    snapshot_id: str
+    captured_at: datetime
+    payload: FrameImagePayload
+    backend_name: str
+    capture_target: str
+    regions: tuple[TextExtractionRegionRequest, ...]
+    metadata: Mapping[str, object] = field(default_factory=dict)
+
+    def __post_init__(self) -> None:
+        if not self.frame_id:
+            raise ValueError("frame_id must not be empty.")
+        if not self.snapshot_id:
+            raise ValueError("snapshot_id must not be empty.")
+        if self.captured_at.tzinfo is None or self.captured_at.utcoffset() is None:
+            raise ValueError("captured_at must be timezone-aware.")
+        if not self.backend_name:
+            raise ValueError("backend_name must not be empty.")
+        if not self.capture_target:
+            raise ValueError("capture_target must not be empty.")
+        if not self.regions:
+            raise ValueError("regions must not be empty.")
+
+
+@dataclass(slots=True, frozen=True, kw_only=True)
+class TextExtractionResult:
+    """Structured result for observe-only OCR/text extraction scaffolding."""
+
+    adapter_name: str
+    success: bool
+    request: TextExtractionRequest | None = None
+    text_regions: tuple[SemanticTextRegion, ...] = ()
+    enriched_snapshot: SemanticStateSnapshot | None = None
+    error_code: str | None = None
+    error_message: str | None = None
+    details: Mapping[str, object] = field(default_factory=dict)
+
+    def __post_init__(self) -> None:
+        if not self.adapter_name:
+            raise ValueError("adapter_name must not be empty.")
+        if self.success and self.request is None:
+            raise ValueError("Successful extraction results must include request.")
+        if not self.success and self.error_code is None:
+            raise ValueError("Failed extraction results must include error_code.")
+        if self.success and (self.error_code is not None or self.error_message is not None):
+            raise ValueError("Successful extraction results must not include error details.")
+        if not self.success and self.enriched_snapshot is not None:
+            raise ValueError("Failed extraction results must not include enriched_snapshot.")
+
+    @classmethod
+    def ok(
+        cls,
+        *,
+        adapter_name: str,
+        request: TextExtractionRequest,
+        text_regions: tuple[SemanticTextRegion, ...],
+        enriched_snapshot: SemanticStateSnapshot,
+        details: Mapping[str, object] | None = None,
+    ) -> Self:
+        """Build a successful text extraction scaffolding result."""
+
+        return cls(
+            adapter_name=adapter_name,
+            success=True,
+            request=request,
+            text_regions=text_regions,
+            enriched_snapshot=enriched_snapshot,
+            details={} if details is None else details,
+        )
+
+    @classmethod
+    def failure(
+        cls,
+        *,
+        adapter_name: str,
+        error_code: str,
+        error_message: str,
+        details: Mapping[str, object] | None = None,
+    ) -> Self:
+        """Build a failed text extraction scaffolding result."""
+
+        return cls(
+            adapter_name=adapter_name,
+            success=False,
+            error_code=error_code,
+            error_message=error_message,
+            details={} if details is None else details,
+        )
+
+
+class PreparedSemanticTextExtractionAdapter:
+    """Derive OCR-ready request scaffolding and text placeholders from semantic state."""
+
+    adapter_name = "PreparedSemanticTextExtractionAdapter"
+
+    def extract(
+        self,
+        preparation_result: SemanticExtractionPreparationResult,
+        state_result: SemanticStateBuildResult,
+    ) -> TextExtractionResult:
+        """Return OCR/text extraction scaffolding or a safe structured failure."""
+
+        if not preparation_result.success:
+            return TextExtractionResult.failure(
+                adapter_name=self.adapter_name,
+                error_code="preparation_failed",
+                error_message=preparation_result.error_message or "Semantic preparation did not succeed.",
+                details={
+                    "preparation_error_code": preparation_result.error_code,
+                    "preparation_adapter_name": preparation_result.adapter_name,
+                },
+            )
+
+        if not state_result.success:
+            return TextExtractionResult.failure(
+                adapter_name=self.adapter_name,
+                error_code="state_build_failed",
+                error_message=state_result.error_message or "Semantic state building did not succeed.",
+                details={
+                    "state_error_code": state_result.error_code,
+                    "state_builder_name": state_result.builder_name,
+                },
+            )
+
+        extraction_input = preparation_result.extraction_input
+        snapshot = state_result.snapshot
+        if extraction_input is None:
+            return TextExtractionResult.failure(
+                adapter_name=self.adapter_name,
+                error_code="extraction_input_unavailable",
+                error_message="Semantic preparation did not provide extraction input.",
+                details={"preparation_adapter_name": preparation_result.adapter_name},
+            )
+        if snapshot is None:
+            return TextExtractionResult.failure(
+                adapter_name=self.adapter_name,
+                error_code="semantic_snapshot_unavailable",
+                error_message="Semantic state building did not provide a snapshot.",
+                details={"state_builder_name": state_result.builder_name},
+            )
+        if not isinstance(extraction_input.payload, FrameImagePayload):
+            return TextExtractionResult.failure(
+                adapter_name=self.adapter_name,
+                error_code="payload_unavailable",
+                error_message="Text extraction requires a prepared image payload.",
+                details={"frame_id": extraction_input.frame_id},
+            )
+        if not snapshot.region_blocks:
+            return TextExtractionResult.failure(
+                adapter_name=self.adapter_name,
+                error_code="text_regions_unavailable",
+                error_message="Semantic state does not contain OCR-ready region blocks.",
+                details={"snapshot_id": snapshot.snapshot_id},
+            )
+
+        try:
+            request = self._build_request(extraction_input, snapshot)
+            text_regions = self._build_text_regions(request)
+            enriched_snapshot = replace(
+                snapshot,
+                text_regions=text_regions,
+                metadata={
+                    **dict(snapshot.metadata),
+                    "text_extraction_adapter_name": self.adapter_name,
+                    "text_extraction_scaffold": True,
+                    "text_region_ids": tuple(region.region_id for region in text_regions),
+                },
+            )
+        except Exception as exc:  # noqa: BLE001 - adapter must remain failure-safe
+            return TextExtractionResult.failure(
+                adapter_name=self.adapter_name,
+                error_code="text_extraction_exception",
+                error_message=str(exc),
+                details={
+                    "frame_id": extraction_input.frame_id,
+                    "exception_type": type(exc).__name__,
+                },
+            )
+
+        return TextExtractionResult.ok(
+            adapter_name=self.adapter_name,
+            request=request,
+            text_regions=text_regions,
+            enriched_snapshot=enriched_snapshot,
+            details={
+                "frame_id": extraction_input.frame_id,
+                "region_count": len(text_regions),
+                "snapshot_id": enriched_snapshot.snapshot_id,
+            },
+        )
+
+    def _build_request(
+        self,
+        extraction_input: SemanticExtractionInput,
+        snapshot: SemanticStateSnapshot,
+    ) -> TextExtractionRequest:
+        request_regions = tuple(
+            TextExtractionRegionRequest(
+                region_id=f"{block.block_id}:ocr",
+                label=block.label,
+                bounds=block.bounds,
+                node_id=block.node_id,
+                block_id=block.block_id,
+                role="text_region",
+                metadata={
+                    **dict(block.metadata),
+                    "observe_only": True,
+                    "analysis_only": True,
+                    "ocr_scaffold": True,
+                    "frame_id": extraction_input.frame_id,
+                },
+            )
+            for block in snapshot.region_blocks
+        )
+        return TextExtractionRequest(
+            frame_id=extraction_input.frame_id,
+            snapshot_id=snapshot.snapshot_id,
+            captured_at=extraction_input.captured_at,
+            payload=extraction_input.payload,
+            backend_name=extraction_input.backend_name,
+            capture_target=extraction_input.capture_target,
+            regions=request_regions,
+            metadata={
+                "capture_provider_name": extraction_input.capture_provider_name,
+                "display_count": extraction_input.display_count,
+                "observe_only": True,
+                "ocr_backend_name": None,
+            },
+        )
+
+    def _build_text_regions(
+        self,
+        request: TextExtractionRequest,
+    ) -> tuple[SemanticTextRegion, ...]:
+        return tuple(
+            SemanticTextRegion(
+                region_id=region.region_id,
+                label=region.label,
+                bounds=region.bounds,
+                node_id=region.node_id,
+                block_id=region.block_id,
+                role=region.role,
+                status=SemanticTextStatus.pending,
+                enabled=False,
+                extracted_text=None,
+                confidence=None,
+                metadata={
+                    **dict(region.metadata),
+                    "text_source": "placeholder",
+                    "ocr_backend_name": None,
+                    "observe_only": True,
+                    "analysis_only": True,
+                },
+            )
+            for region in request.regions
+        )
