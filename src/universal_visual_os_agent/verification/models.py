@@ -4,7 +4,12 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from enum import StrEnum
+from typing import Mapping
 
+from universal_visual_os_agent.semantics.semantic_delta import (
+    SemanticDelta,
+    SemanticDeltaCategory,
+)
 from universal_visual_os_agent.semantics.state import SemanticStateSnapshot
 
 
@@ -16,6 +21,54 @@ class VerificationStatus(StrEnum):
     unknown = "unknown"
 
 
+class ExpectedSemanticChange(StrEnum):
+    """High-level expected semantic outcome types."""
+
+    appeared = "appeared"
+    disappeared = "disappeared"
+    changed = "changed"
+
+
+class CandidateScoreDeltaDirection(StrEnum):
+    """Expected score-delta direction for candidate verification."""
+
+    any_change = "any_change"
+    increased = "increased"
+    decreased = "decreased"
+
+
+@dataclass(slots=True, frozen=True, kw_only=True)
+class ExpectedSemanticOutcome:
+    """A structured semantic outcome to verify from the delta layer."""
+
+    outcome_id: str
+    category: SemanticDeltaCategory
+    item_id: str
+    expected_change: ExpectedSemanticChange
+    required_changed_fields: tuple[str, ...] = ()
+    expected_before_state: Mapping[str, object] = field(default_factory=dict)
+    expected_after_state: Mapping[str, object] = field(default_factory=dict)
+    minimum_score_delta: float | None = None
+    score_delta_direction: CandidateScoreDeltaDirection = CandidateScoreDeltaDirection.any_change
+    summary: str | None = None
+
+    def __post_init__(self) -> None:
+        if not self.outcome_id:
+            raise ValueError("outcome_id must not be empty.")
+        if not self.item_id:
+            raise ValueError("item_id must not be empty.")
+        if self.minimum_score_delta is not None and self.minimum_score_delta < 0.0:
+            raise ValueError("minimum_score_delta must be non-negative when provided.")
+        if (
+            self.minimum_score_delta is not None
+            or self.score_delta_direction is not CandidateScoreDeltaDirection.any_change
+        ):
+            if self.category is not SemanticDeltaCategory.candidate:
+                raise ValueError("Candidate score expectations only apply to candidate outcomes.")
+            if self.expected_change is not ExpectedSemanticChange.changed:
+                raise ValueError("Candidate score expectations require a changed outcome.")
+
+
 @dataclass(slots=True, frozen=True, kw_only=True)
 class SemanticTransitionExpectation:
     """Expected semantic changes between snapshots."""
@@ -24,6 +77,14 @@ class SemanticTransitionExpectation:
     required_candidate_ids: tuple[str, ...] = ()
     forbidden_candidate_ids: tuple[str, ...] = ()
     required_node_ids: tuple[str, ...] = ()
+    expected_outcomes: tuple[ExpectedSemanticOutcome, ...] = ()
+
+    def __post_init__(self) -> None:
+        if not self.summary:
+            raise ValueError("summary must not be empty.")
+        outcome_ids = {outcome.outcome_id for outcome in self.expected_outcomes}
+        if len(outcome_ids) != len(self.expected_outcomes):
+            raise ValueError("expected outcome identifiers must be unique.")
 
 
 @dataclass(slots=True, frozen=True, kw_only=True)
@@ -31,7 +92,36 @@ class SemanticStateTransition:
     """Before/after semantic state used for verification."""
 
     before: SemanticStateSnapshot | None
-    after: SemanticStateSnapshot
+    after: SemanticStateSnapshot | None
+
+
+@dataclass(slots=True, frozen=True, kw_only=True)
+class SemanticOutcomeVerification:
+    """Verification record for one expected semantic outcome."""
+
+    outcome_id: str
+    status: VerificationStatus
+    category: SemanticDeltaCategory
+    item_id: str
+    expected_change: ExpectedSemanticChange
+    summary: str
+    reasons: tuple[str, ...] = ()
+    matched_change_type: str | None = None
+    matched_changed_fields: tuple[str, ...] = ()
+    observe_only: bool = True
+    read_only: bool = True
+    non_actionable: bool = True
+    metadata: Mapping[str, object] = field(default_factory=dict)
+
+    def __post_init__(self) -> None:
+        if not self.outcome_id:
+            raise ValueError("outcome_id must not be empty.")
+        if not self.item_id:
+            raise ValueError("item_id must not be empty.")
+        if not self.summary:
+            raise ValueError("summary must not be empty.")
+        if not self.observe_only or not self.read_only or not self.non_actionable:
+            raise ValueError("Outcome verification records must remain observe-only and non-actionable.")
 
 
 @dataclass(slots=True, frozen=True, kw_only=True)
@@ -44,7 +134,22 @@ class VerificationResult:
     missing_candidate_ids: tuple[str, ...] = ()
     unexpected_candidate_ids: tuple[str, ...] = ()
     missing_node_ids: tuple[str, ...] = ()
+    outcome_verifications: tuple[SemanticOutcomeVerification, ...] = ()
+    matched_outcome_ids: tuple[str, ...] = ()
+    unsatisfied_outcome_ids: tuple[str, ...] = ()
+    unknown_outcome_ids: tuple[str, ...] = ()
+    reasons: tuple[str, ...] = ()
+    semantic_delta: SemanticDelta | None = None
+    observe_only: bool = True
+    read_only: bool = True
+    non_actionable: bool = True
     evidence: dict[str, object] = field(default_factory=dict)
+
+    def __post_init__(self) -> None:
+        if not self.summary:
+            raise ValueError("summary must not be empty.")
+        if not self.observe_only or not self.read_only or not self.non_actionable:
+            raise ValueError("Verification results must remain observe-only and non-actionable.")
 
     @property
     def success(self) -> bool:
@@ -57,45 +162,10 @@ def evaluate_semantic_transition(
     expectation: SemanticTransitionExpectation,
     transition: SemanticStateTransition,
 ) -> VerificationResult:
-    """Evaluate a semantic transition against a pure expectation contract."""
+    """Evaluate a semantic transition against the goal-oriented verification contract."""
 
-    after_candidate_ids = {candidate.candidate_id for candidate in transition.after.candidates}
-    matched_candidate_ids = tuple(
-        candidate_id
-        for candidate_id in expectation.required_candidate_ids
-        if candidate_id in after_candidate_ids
-    )
-    missing_candidate_ids = tuple(
-        candidate_id
-        for candidate_id in expectation.required_candidate_ids
-        if candidate_id not in after_candidate_ids
-    )
-    unexpected_candidate_ids = tuple(
-        candidate_id
-        for candidate_id in expectation.forbidden_candidate_ids
-        if candidate_id in after_candidate_ids
+    from universal_visual_os_agent.verification.goal_oriented import (
+        GoalOrientedSemanticVerifier,
     )
 
-    after_node_ids = set()
-    if transition.after.layout_tree is not None:
-        after_node_ids = {node.node_id for node in transition.after.layout_tree.walk()}
-    missing_node_ids = tuple(
-        node_id for node_id in expectation.required_node_ids if node_id not in after_node_ids
-    )
-
-    status = VerificationStatus.satisfied
-    if missing_candidate_ids or unexpected_candidate_ids or missing_node_ids:
-        status = VerificationStatus.unsatisfied
-
-    return VerificationResult(
-        status=status,
-        summary=expectation.summary,
-        matched_candidate_ids=matched_candidate_ids,
-        missing_candidate_ids=missing_candidate_ids,
-        unexpected_candidate_ids=unexpected_candidate_ids,
-        missing_node_ids=missing_node_ids,
-        evidence={
-            "after_candidate_count": len(transition.after.candidates),
-            "after_node_count": len(after_node_ids),
-        },
-    )
+    return GoalOrientedSemanticVerifier().verify(expectation, transition)

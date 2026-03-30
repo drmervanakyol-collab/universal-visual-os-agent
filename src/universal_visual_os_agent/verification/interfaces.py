@@ -24,3 +24,7 @@ class SemanticTransitionVerifier(Protocol):
 
 class Verifier(SemanticTransitionVerifier, Protocol):
     """Backwards-compatible alias for the generic verifier contract."""
+
+
+class GoalOrientedVerifier(SemanticTransitionVerifier, Protocol):
+    """Verification contract for semantic-delta-based expected outcomes."""
