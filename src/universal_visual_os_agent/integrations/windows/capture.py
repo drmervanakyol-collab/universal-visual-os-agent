@@ -12,6 +12,7 @@ from universal_visual_os_agent.integrations.windows.capture_backends import (
     WindowsScreenCaptureApi,
     select_capture_backends,
 )
+from universal_visual_os_agent.integrations.windows.capture_dxcam import WindowsDxcamCaptureBackend
 from universal_visual_os_agent.integrations.windows.capture_gdi import WindowsGdiCaptureBackend
 from universal_visual_os_agent.integrations.windows.capture_models import (
     RawWindowsCapture,
@@ -245,6 +246,7 @@ class WindowsObserveOnlyCaptureProvider(CaptureProvider):
         if capture_api is not None:
             return (BoundsCaptureApiBackendAdapter(capture_api=capture_api),)
         return (
+            WindowsDxcamCaptureBackend(),
             WindowsGdiCaptureBackend(),
             WindowsForegroundWindowPrintCaptureBackend(),
         )
@@ -305,6 +307,14 @@ def _error_code_for_stage(stage: str) -> str:
         "validate_window_visibility": "target_window_not_visible",
         "validate_window_state": "target_window_unsupported_state",
         "foreground_window_changed": "foreground_window_changed",
+        "desktop_duplication_runtime_unavailable": "desktop_duplication_unavailable",
+        "desktop_duplication_incomplete": "desktop_duplication_incomplete",
+        "dxcam_backend_exhausted": "dxcam_backend_unavailable",
+        "dxcam_create": "dxcam_create_failed",
+        "dxcam_layout_unsupported": "dxcam_layout_unsupported",
+        "dxcam_grab": "dxcam_grab_failed",
+        "dxcam_frame_unavailable": "dxcam_frame_unavailable",
+        "dxcam_frame_shape_invalid": "dxcam_frame_invalid",
         "acquire_source_dc": "source_dc_failed",
         "create_memory_dc": "memory_dc_failed",
         "create_bitmap": "bitmap_creation_failed",

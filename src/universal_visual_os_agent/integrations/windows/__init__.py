@@ -8,6 +8,12 @@ from universal_visual_os_agent.integrations.windows.capture_backends import (
     WindowsScreenCaptureApi,
     select_capture_backends,
 )
+from universal_visual_os_agent.integrations.windows.capture_desktop_duplication import (
+    WindowsDesktopDuplicationCaptureBackend,
+)
+from universal_visual_os_agent.integrations.windows.capture_dxcam import (
+    WindowsDxcamCaptureBackend,
+)
 from universal_visual_os_agent.integrations.windows.capture_gdi import (
     CtypesWindowsScreenCaptureApi,
     WindowsGdiCaptureBackend,
@@ -57,6 +63,8 @@ __all__ = [
     "WindowsCaptureStageError",
     "WindowsCaptureTarget",
     "WindowsApiUnavailableError",
+    "WindowsDesktopDuplicationCaptureBackend",
+    "WindowsDxcamCaptureBackend",
     "WindowsForegroundWindowPrintCaptureBackend",
     "WindowsForegroundWindowMetadataReader",
     "WindowsGdiCaptureBackend",

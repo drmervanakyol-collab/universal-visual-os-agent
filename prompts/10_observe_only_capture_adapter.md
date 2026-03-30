@@ -245,3 +245,138 @@ Important:
 - if capture succeeds, report that clearly
 - if no foreground window is visible, report that clearly
 - keep the implementation tightly scoped to diagnostics only
+
+------full erkran için farklı çözüm ------
+
+Read `AGENTS.md`, `docs/SPEC.md`, and `docs/EXECPLAN.md`.
+
+Implement a focused new integration phase for full-desktop read-only capture using a modern Windows backend, with Desktop Duplication as the primary target.
+
+Scope:
+- do not add live input
+- do not add action execution
+- do not expand planning, semantics, or policy
+- work only on full-desktop observe-only capture capability
+- keep all OS-specific logic isolated under `integrations/windows`
+
+Primary goal:
+- add a new read-only full-desktop capture backend strategy centered on Windows Desktop Duplication feasibility and implementation
+
+Required goals:
+- investigate and implement, if feasible in the current repo constraints, a read-only Desktop Duplication backend for full desktop capture
+- if full implementation is not feasible in this pass, still add:
+  - backend abstraction support
+  - capability detection
+  - structured backend availability reporting
+  - clear diagnostic output explaining why Desktop Duplication is unavailable or incomplete
+- preserve the existing observe-only safety model
+- do not remove the existing GDI or PrintWindow paths; keep them as fallbacks or separate strategies
+
+Functional requirements:
+- target full desktop / virtual desktop capture, not only foreground window capture
+- support multi-monitor-safe abstractions where possible
+- return structured success/failure results
+- preserve image payload + frame metadata behavior
+- report structured diagnostics including:
+  - selected backend
+  - available backends
+  - capability detection results
+  - failing stage
+  - environment/session limitations
+  - whether fallback paths were attempted
+
+Safety requirements:
+- strictly read-only and observe-only
+- no live input
+- no action execution
+- no unsafe shortcuts
+- no silent fallback that hides backend failure reasons
+- if a backend is unavailable, return safe structured failure instead of throwing unhandled exceptions
+
+Implementation constraints:
+- Python 3.14 style
+- type hints on public interfaces
+- keep modules small
+- keep interfaces clean and testable
+- do not add third-party runtime dependencies unless absolutely necessary; ask first if one is needed
+- if Desktop Duplication requires a substantial low-level dependency or cannot be safely implemented directly in this pass, say so clearly and leave the code in a cleaner backend-strategy state
+
+Tests to add/update:
+- backend capability detection behavior
+- backend selection behavior for full-desktop capture requests
+- structured unavailable-backend reporting
+- safe failure behavior for incomplete or unsupported Desktop Duplication paths
+- no unhandled exception propagation
+- preservation of observe-only semantics
+- abstraction-level validation for virtual desktop output shape
+
+Validation requirements:
+- run the pre-delivery self-debug loop
+- run compile/import/test validation
+- include one read-only runtime smoke test if possible
+- clearly separate:
+  - actually executed checks
+  - environment-specific failures
+  - static reasoning only
+
+Important:
+- If Desktop Duplication cannot be fully implemented safely in this pass, do not fake completeness.
+- If the current environment does not allow successful live full-desktop capture validation, say so clearly.
+- If another modern read-only full-desktop Windows backend is more feasible within current repo constraints, explain that explicitly and compare it against Desktop Duplication.
+- Keep the implementation tightly scoped to full-desktop capture backend strategy and diagnostics only.
+
+-----yine olmadı dxcam eklemeyi deneyecek-------
+
+Read `AGENTS.md`, `docs/SPEC.md`, and `docs/EXECPLAN.md`.
+
+Implement a focused new integration phase for working full-desktop observe-only capture using DXcam as the primary backend.
+
+Scope:
+- do not add live input
+- do not add action execution
+- do not expand planning, semantics, or policy
+- work only on full-desktop observe-only capture capability
+- keep all OS-specific logic isolated under `integrations/windows`
+
+Goals:
+- add a new DXcam-backed full-desktop capture backend
+- keep the existing GDI backend as a fallback
+- keep PrintWindow separate for foreground-window capture only
+- preserve structured success/failure results
+- preserve backend selection and diagnostics
+- prefer DXcam for full-desktop capture requests when available
+
+Requirements:
+- ask for approval before adding the dependency if needed
+- integrate DXcam behind the existing capture backend abstraction
+- support full-desktop / virtual-desktop capture requests
+- keep everything strictly read-only and observe-only
+- report:
+  - selected backend
+  - available backends
+  - backend unavailability reasons
+  - environment/session limitations
+  - fallback behavior
+- no silent fallback that hides failure causes
+
+Tests to add/update:
+- DXcam backend availability detection
+- backend selection behavior for full-desktop requests
+- structured failure behavior when DXcam is unavailable
+- safe fallback to GDI if DXcam is unavailable or fails
+- no unhandled exception propagation
+- preservation of observe-only semantics
+
+Validation requirements:
+- run the pre-delivery self-debug loop
+- run compile/import/test validation
+- include one read-only runtime smoke test for full-desktop capture if possible
+- clearly separate:
+  - actually executed checks
+  - environment-specific failures
+  - static reasoning only
+
+Important:
+- If DXcam integration succeeds, use it as the primary full-desktop backend.
+- If DXcam cannot be added safely, say so clearly and stop rather than faking completeness.
+- Keep the implementation tightly scoped to full-desktop capture backend integration only.
