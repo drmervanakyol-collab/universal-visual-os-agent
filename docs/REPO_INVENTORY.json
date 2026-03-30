@@ -248,6 +248,24 @@
         "in_cycle": false,
         "python_module_name": null
       },
+      "path": ".tmp_test_artifacts/133799fcc8554dd1b255965c4e3c4234/agent.sqlite3",
+      "primary_role": "support",
+      "production_criticality": "non_production",
+      "secondary_role": "temporary_artifact"
+    },
+    {
+      "archive_candidate": true,
+      "cleanup_recommendation": "review_for_archive",
+      "coupling_risk_notes": [],
+      "cross_package_import_count": 0,
+      "diagnostic_candidate": false,
+      "internal_import_count": 0,
+      "legacy_candidate": false,
+      "line_count": null,
+      "metadata": {
+        "in_cycle": false,
+        "python_module_name": null
+      },
       "path": ".tmp_test_artifacts/1496161461a047f680c8c84a6f6dcdc4/agent.sqlite3",
       "primary_role": "support",
       "production_criticality": "non_production",
@@ -626,6 +644,24 @@
         "in_cycle": false,
         "python_module_name": null
       },
+      "path": ".tmp_test_artifacts/47738f93f97d4b82bbe15bc0f55ec4d3/agent.sqlite3",
+      "primary_role": "support",
+      "production_criticality": "non_production",
+      "secondary_role": "temporary_artifact"
+    },
+    {
+      "archive_candidate": true,
+      "cleanup_recommendation": "review_for_archive",
+      "coupling_risk_notes": [],
+      "cross_package_import_count": 0,
+      "diagnostic_candidate": false,
+      "internal_import_count": 0,
+      "legacy_candidate": false,
+      "line_count": null,
+      "metadata": {
+        "in_cycle": false,
+        "python_module_name": null
+      },
       "path": ".tmp_test_artifacts/49778acd788940b3bb4a5b5224369891/agent.sqlite3",
       "primary_role": "support",
       "production_criticality": "non_production",
@@ -842,6 +878,24 @@
         "in_cycle": false,
         "python_module_name": null
       },
+      "path": ".tmp_test_artifacts/61f8a6fc9f244bfe8c82fae858955740/agent.sqlite3",
+      "primary_role": "support",
+      "production_criticality": "non_production",
+      "secondary_role": "temporary_artifact"
+    },
+    {
+      "archive_candidate": true,
+      "cleanup_recommendation": "review_for_archive",
+      "coupling_risk_notes": [],
+      "cross_package_import_count": 0,
+      "diagnostic_candidate": false,
+      "internal_import_count": 0,
+      "legacy_candidate": false,
+      "line_count": null,
+      "metadata": {
+        "in_cycle": false,
+        "python_module_name": null
+      },
       "path": ".tmp_test_artifacts/6278de17782e4f4c917ff3abf94581b9/agent.sqlite3",
       "primary_role": "support",
       "production_criticality": "non_production",
@@ -1004,6 +1058,24 @@
         "in_cycle": false,
         "python_module_name": null
       },
+      "path": ".tmp_test_artifacts/718a94ae228d4586b7777a24ff5d6562/agent.sqlite3",
+      "primary_role": "support",
+      "production_criticality": "non_production",
+      "secondary_role": "temporary_artifact"
+    },
+    {
+      "archive_candidate": true,
+      "cleanup_recommendation": "review_for_archive",
+      "coupling_risk_notes": [],
+      "cross_package_import_count": 0,
+      "diagnostic_candidate": false,
+      "internal_import_count": 0,
+      "legacy_candidate": false,
+      "line_count": null,
+      "metadata": {
+        "in_cycle": false,
+        "python_module_name": null
+      },
       "path": ".tmp_test_artifacts/71fd8e15a0a045ce995625334db3bb77/agent.sqlite3",
       "primary_role": "support",
       "production_criticality": "non_production",
@@ -1112,6 +1184,60 @@
         "in_cycle": false,
         "python_module_name": null
       },
+      "path": ".tmp_test_artifacts/76bda0e71d2444d59454f4d1633eae3f/agent.sqlite3",
+      "primary_role": "support",
+      "production_criticality": "non_production",
+      "secondary_role": "temporary_artifact"
+    },
+    {
+      "archive_candidate": true,
+      "cleanup_recommendation": "review_for_archive",
+      "coupling_risk_notes": [],
+      "cross_package_import_count": 0,
+      "diagnostic_candidate": false,
+      "internal_import_count": 0,
+      "legacy_candidate": false,
+      "line_count": null,
+      "metadata": {
+        "in_cycle": false,
+        "python_module_name": null
+      },
+      "path": ".tmp_test_artifacts/7883aec6937e4308bd219a133573c8cc/agent.sqlite3",
+      "primary_role": "support",
+      "production_criticality": "non_production",
+      "secondary_role": "temporary_artifact"
+    },
+    {
+      "archive_candidate": true,
+      "cleanup_recommendation": "review_for_archive",
+      "coupling_risk_notes": [],
+      "cross_package_import_count": 0,
+      "diagnostic_candidate": false,
+      "internal_import_count": 0,
+      "legacy_candidate": false,
+      "line_count": null,
+      "metadata": {
+        "in_cycle": false,
+        "python_module_name": null
+      },
+      "path": ".tmp_test_artifacts/793faa5d58644f1d9ef343d75e531291/agent.sqlite3",
+      "primary_role": "support",
+      "production_criticality": "non_production",
+      "secondary_role": "temporary_artifact"
+    },
+    {
+      "archive_candidate": true,
+      "cleanup_recommendation": "review_for_archive",
+      "coupling_risk_notes": [],
+      "cross_package_import_count": 0,
+      "diagnostic_candidate": false,
+      "internal_import_count": 0,
+      "legacy_candidate": false,
+      "line_count": null,
+      "metadata": {
+        "in_cycle": false,
+        "python_module_name": null
+      },
       "path": ".tmp_test_artifacts/7945d243fd3d49e1bc972ad306bbe1b1/agent.sqlite3",
       "primary_role": "support",
       "production_criticality": "non_production",
@@ -1148,7 +1274,43 @@
         "in_cycle": false,
         "python_module_name": null
       },
+      "path": ".tmp_test_artifacts/8127b6b4d8084fbaaca9aae79b6c0503/agent.sqlite3",
+      "primary_role": "support",
+      "production_criticality": "non_production",
+      "secondary_role": "temporary_artifact"
+    },
+    {
+      "archive_candidate": true,
+      "cleanup_recommendation": "review_for_archive",
+      "coupling_risk_notes": [],
+      "cross_package_import_count": 0,
+      "diagnostic_candidate": false,
+      "internal_import_count": 0,
+      "legacy_candidate": false,
+      "line_count": null,
+      "metadata": {
+        "in_cycle": false,
+        "python_module_name": null
+      },
       "path": ".tmp_test_artifacts/82a1c46645314128b9ecf1951932b3bb/agent.sqlite3",
+      "primary_role": "support",
+      "production_criticality": "non_production",
+      "secondary_role": "temporary_artifact"
+    },
+    {
+      "archive_candidate": true,
+      "cleanup_recommendation": "review_for_archive",
+      "coupling_risk_notes": [],
+      "cross_package_import_count": 0,
+      "diagnostic_candidate": false,
+      "internal_import_count": 0,
+      "legacy_candidate": false,
+      "line_count": null,
+      "metadata": {
+        "in_cycle": false,
+        "python_module_name": null
+      },
+      "path": ".tmp_test_artifacts/83249e3055c449799482465dcb4b5e65/agent.sqlite3",
       "primary_role": "support",
       "production_criticality": "non_production",
       "secondary_role": "temporary_artifact"
@@ -1202,6 +1364,24 @@
         "in_cycle": false,
         "python_module_name": null
       },
+      "path": ".tmp_test_artifacts/8a93dda6256d4c1cbd812ea7379a7d44/agent.sqlite3",
+      "primary_role": "support",
+      "production_criticality": "non_production",
+      "secondary_role": "temporary_artifact"
+    },
+    {
+      "archive_candidate": true,
+      "cleanup_recommendation": "review_for_archive",
+      "coupling_risk_notes": [],
+      "cross_package_import_count": 0,
+      "diagnostic_candidate": false,
+      "internal_import_count": 0,
+      "legacy_candidate": false,
+      "line_count": null,
+      "metadata": {
+        "in_cycle": false,
+        "python_module_name": null
+      },
       "path": ".tmp_test_artifacts/8d489f88d2d04b5fa42edce4941ebd61/agent.sqlite3",
       "primary_role": "support",
       "production_criticality": "non_production",
@@ -1221,6 +1401,24 @@
         "python_module_name": null
       },
       "path": ".tmp_test_artifacts/8f2cc5875a52476b85bddbb1c4e482bd/agent.sqlite3",
+      "primary_role": "support",
+      "production_criticality": "non_production",
+      "secondary_role": "temporary_artifact"
+    },
+    {
+      "archive_candidate": true,
+      "cleanup_recommendation": "review_for_archive",
+      "coupling_risk_notes": [],
+      "cross_package_import_count": 0,
+      "diagnostic_candidate": false,
+      "internal_import_count": 0,
+      "legacy_candidate": false,
+      "line_count": null,
+      "metadata": {
+        "in_cycle": false,
+        "python_module_name": null
+      },
+      "path": ".tmp_test_artifacts/8f3cfe3fdc7d43c3aebf10d25c733a5f/agent.sqlite3",
       "primary_role": "support",
       "production_criticality": "non_production",
       "secondary_role": "temporary_artifact"
@@ -1454,6 +1652,24 @@
         "in_cycle": false,
         "python_module_name": null
       },
+      "path": ".tmp_test_artifacts/b18835ca61e94f73a5a0e3bee0fa5a61/agent.sqlite3",
+      "primary_role": "support",
+      "production_criticality": "non_production",
+      "secondary_role": "temporary_artifact"
+    },
+    {
+      "archive_candidate": true,
+      "cleanup_recommendation": "review_for_archive",
+      "coupling_risk_notes": [],
+      "cross_package_import_count": 0,
+      "diagnostic_candidate": false,
+      "internal_import_count": 0,
+      "legacy_candidate": false,
+      "line_count": null,
+      "metadata": {
+        "in_cycle": false,
+        "python_module_name": null
+      },
       "path": ".tmp_test_artifacts/b1e642bf1dde4cb09ff2f1e891689149/agent.sqlite3",
       "primary_role": "support",
       "production_criticality": "non_production",
@@ -1634,6 +1850,24 @@
         "in_cycle": false,
         "python_module_name": null
       },
+      "path": ".tmp_test_artifacts/bf324ebfc293467f918e6e994309245a/agent.sqlite3",
+      "primary_role": "support",
+      "production_criticality": "non_production",
+      "secondary_role": "temporary_artifact"
+    },
+    {
+      "archive_candidate": true,
+      "cleanup_recommendation": "review_for_archive",
+      "coupling_risk_notes": [],
+      "cross_package_import_count": 0,
+      "diagnostic_candidate": false,
+      "internal_import_count": 0,
+      "legacy_candidate": false,
+      "line_count": null,
+      "metadata": {
+        "in_cycle": false,
+        "python_module_name": null
+      },
       "path": ".tmp_test_artifacts/c2cfbd1b01274b23b6a806eee4bb9929/agent.sqlite3",
       "primary_role": "support",
       "production_criticality": "non_production",
@@ -1671,6 +1905,24 @@
         "python_module_name": null
       },
       "path": ".tmp_test_artifacts/c431cabf9f034747be6d7c6a4e343f1f/agent.sqlite3",
+      "primary_role": "support",
+      "production_criticality": "non_production",
+      "secondary_role": "temporary_artifact"
+    },
+    {
+      "archive_candidate": true,
+      "cleanup_recommendation": "review_for_archive",
+      "coupling_risk_notes": [],
+      "cross_package_import_count": 0,
+      "diagnostic_candidate": false,
+      "internal_import_count": 0,
+      "legacy_candidate": false,
+      "line_count": null,
+      "metadata": {
+        "in_cycle": false,
+        "python_module_name": null
+      },
+      "path": ".tmp_test_artifacts/c590bc4cf476449798bb3c57727d9108/agent.sqlite3",
       "primary_role": "support",
       "production_criticality": "non_production",
       "secondary_role": "temporary_artifact"
@@ -2012,6 +2264,24 @@
         "in_cycle": false,
         "python_module_name": null
       },
+      "path": ".tmp_test_artifacts/f3f0a43f848341a29d7db716024e7807/agent.sqlite3",
+      "primary_role": "support",
+      "production_criticality": "non_production",
+      "secondary_role": "temporary_artifact"
+    },
+    {
+      "archive_candidate": true,
+      "cleanup_recommendation": "review_for_archive",
+      "coupling_risk_notes": [],
+      "cross_package_import_count": 0,
+      "diagnostic_candidate": false,
+      "internal_import_count": 0,
+      "legacy_candidate": false,
+      "line_count": null,
+      "metadata": {
+        "in_cycle": false,
+        "python_module_name": null
+      },
       "path": ".tmp_test_artifacts/f743315f1b134b8a94b74c57d329cc38/agent.sqlite3",
       "primary_role": "support",
       "production_criticality": "non_production",
@@ -2144,8 +2414,8 @@
       "secondary_role": null
     },
     {
-      "archive_candidate": true,
-      "cleanup_recommendation": "review_for_archive",
+      "archive_candidate": false,
+      "cleanup_recommendation": "keep",
       "coupling_risk_notes": [],
       "cross_package_import_count": 0,
       "diagnostic_candidate": false,
@@ -2156,14 +2426,14 @@
         "in_cycle": false,
         "python_module_name": null
       },
-      "path": "docs/NEXT_STEPS.md",
+      "path": "docs/CONTEXT_BOUNDARIES.json",
       "primary_role": "docs",
       "production_criticality": "non_production",
-      "secondary_role": "status_doc"
+      "secondary_role": "support_doc"
     },
     {
-      "archive_candidate": true,
-      "cleanup_recommendation": "review_for_archive",
+      "archive_candidate": false,
+      "cleanup_recommendation": "keep",
       "coupling_risk_notes": [],
       "cross_package_import_count": 0,
       "diagnostic_candidate": false,
@@ -2174,10 +2444,64 @@
         "in_cycle": false,
         "python_module_name": null
       },
-      "path": "docs/PROJECT_STATUS.md",
+      "path": "docs/CONTEXT_BOUNDARIES.md",
       "primary_role": "docs",
       "production_criticality": "non_production",
-      "secondary_role": "status_doc"
+      "secondary_role": "support_doc"
+    },
+    {
+      "archive_candidate": false,
+      "cleanup_recommendation": "keep",
+      "coupling_risk_notes": [],
+      "cross_package_import_count": 0,
+      "diagnostic_candidate": false,
+      "internal_import_count": 0,
+      "legacy_candidate": false,
+      "line_count": null,
+      "metadata": {
+        "in_cycle": false,
+        "python_module_name": null
+      },
+      "path": "docs/CONTEXT_PACKS.json",
+      "primary_role": "docs",
+      "production_criticality": "non_production",
+      "secondary_role": "support_doc"
+    },
+    {
+      "archive_candidate": false,
+      "cleanup_recommendation": "keep",
+      "coupling_risk_notes": [],
+      "cross_package_import_count": 0,
+      "diagnostic_candidate": false,
+      "internal_import_count": 0,
+      "legacy_candidate": false,
+      "line_count": null,
+      "metadata": {
+        "in_cycle": false,
+        "python_module_name": null
+      },
+      "path": "docs/CONTEXT_PACKS.md",
+      "primary_role": "docs",
+      "production_criticality": "non_production",
+      "secondary_role": "support_doc"
+    },
+    {
+      "archive_candidate": false,
+      "cleanup_recommendation": "keep",
+      "coupling_risk_notes": [],
+      "cross_package_import_count": 0,
+      "diagnostic_candidate": false,
+      "internal_import_count": 0,
+      "legacy_candidate": false,
+      "line_count": null,
+      "metadata": {
+        "in_cycle": false,
+        "python_module_name": null
+      },
+      "path": "docs/README.md",
+      "primary_role": "docs",
+      "production_criticality": "non_production",
+      "secondary_role": "support_doc"
     },
     {
       "archive_candidate": false,
@@ -2228,7 +2552,97 @@
         "in_cycle": false,
         "python_module_name": null
       },
+      "path": "docs/SYMBOL_MAP.json",
+      "primary_role": "docs",
+      "production_criticality": "non_production",
+      "secondary_role": "support_doc"
+    },
+    {
+      "archive_candidate": false,
+      "cleanup_recommendation": "keep",
+      "coupling_risk_notes": [],
+      "cross_package_import_count": 0,
+      "diagnostic_candidate": false,
+      "internal_import_count": 0,
+      "legacy_candidate": false,
+      "line_count": null,
+      "metadata": {
+        "in_cycle": false,
+        "python_module_name": null
+      },
+      "path": "docs/SYMBOL_MAP.md",
+      "primary_role": "docs",
+      "production_criticality": "non_production",
+      "secondary_role": "support_doc"
+    },
+    {
+      "archive_candidate": false,
+      "cleanup_recommendation": "keep",
+      "coupling_risk_notes": [],
+      "cross_package_import_count": 0,
+      "diagnostic_candidate": false,
+      "internal_import_count": 0,
+      "legacy_candidate": false,
+      "line_count": null,
+      "metadata": {
+        "in_cycle": false,
+        "python_module_name": null
+      },
       "path": "docs/VALIDATION_REPORT_TEMPLATE.md",
+      "primary_role": "docs",
+      "production_criticality": "non_production",
+      "secondary_role": "support_doc"
+    },
+    {
+      "archive_candidate": true,
+      "cleanup_recommendation": "review_for_archive",
+      "coupling_risk_notes": [],
+      "cross_package_import_count": 0,
+      "diagnostic_candidate": false,
+      "internal_import_count": 0,
+      "legacy_candidate": false,
+      "line_count": null,
+      "metadata": {
+        "in_cycle": false,
+        "python_module_name": null
+      },
+      "path": "docs/archive/NEXT_STEPS.md",
+      "primary_role": "docs",
+      "production_criticality": "non_production",
+      "secondary_role": "status_doc"
+    },
+    {
+      "archive_candidate": true,
+      "cleanup_recommendation": "review_for_archive",
+      "coupling_risk_notes": [],
+      "cross_package_import_count": 0,
+      "diagnostic_candidate": false,
+      "internal_import_count": 0,
+      "legacy_candidate": false,
+      "line_count": null,
+      "metadata": {
+        "in_cycle": false,
+        "python_module_name": null
+      },
+      "path": "docs/archive/PROJECT_STATUS.md",
+      "primary_role": "docs",
+      "production_criticality": "non_production",
+      "secondary_role": "status_doc"
+    },
+    {
+      "archive_candidate": false,
+      "cleanup_recommendation": "keep",
+      "coupling_risk_notes": [],
+      "cross_package_import_count": 0,
+      "diagnostic_candidate": false,
+      "internal_import_count": 0,
+      "legacy_candidate": false,
+      "line_count": null,
+      "metadata": {
+        "in_cycle": false,
+        "python_module_name": null
+      },
+      "path": "docs/archive/README.md",
       "primary_role": "docs",
       "production_criticality": "non_production",
       "secondary_role": "support_doc"
@@ -2349,9 +2763,9 @@
       ],
       "cross_package_import_count": 1,
       "diagnostic_candidate": false,
-      "internal_import_count": 5,
+      "internal_import_count": 7,
       "legacy_candidate": false,
-      "line_count": 72,
+      "line_count": 117,
       "metadata": {
         "in_cycle": false,
         "python_module_name": "universal_visual_os_agent.actions"
@@ -2369,14 +2783,34 @@
       ],
       "cross_package_import_count": 2,
       "diagnostic_candidate": false,
-      "internal_import_count": 3,
+      "internal_import_count": 4,
       "legacy_candidate": false,
-      "line_count": 787,
+      "line_count": 571,
       "metadata": {
         "in_cycle": false,
         "python_module_name": "universal_visual_os_agent.actions.dry_run"
       },
       "path": "src/universal_visual_os_agent/actions/dry_run.py",
+      "primary_role": "actions",
+      "production_criticality": "supporting",
+      "secondary_role": "dry_run"
+    },
+    {
+      "archive_candidate": false,
+      "cleanup_recommendation": "review_for_split",
+      "coupling_risk_notes": [
+        "oversized_module"
+      ],
+      "cross_package_import_count": 2,
+      "diagnostic_candidate": false,
+      "internal_import_count": 3,
+      "legacy_candidate": false,
+      "line_count": 251,
+      "metadata": {
+        "in_cycle": false,
+        "python_module_name": "universal_visual_os_agent.actions.dry_run_models"
+      },
+      "path": "src/universal_visual_os_agent/actions/dry_run_models.py",
       "primary_role": "actions",
       "production_criticality": "supporting",
       "secondary_role": "dry_run"
@@ -2393,7 +2827,7 @@
       "diagnostic_candidate": false,
       "internal_import_count": 9,
       "legacy_candidate": false,
-      "line_count": 82,
+      "line_count": 80,
       "metadata": {
         "in_cycle": true,
         "python_module_name": "universal_visual_os_agent.actions.interfaces"
@@ -2427,13 +2861,14 @@
       "coupling_risk_notes": [
         "cycle_member",
         "oversized_module",
+        "high_internal_import_count:10",
         "high_cross_package_import_count:5"
       ],
       "cross_package_import_count": 5,
       "diagnostic_candidate": false,
-      "internal_import_count": 7,
+      "internal_import_count": 10,
       "legacy_candidate": false,
-      "line_count": 643,
+      "line_count": 645,
       "metadata": {
         "in_cycle": true,
         "python_module_name": "universal_visual_os_agent.actions.safe_click"
@@ -2451,9 +2886,9 @@
       ],
       "cross_package_import_count": 3,
       "diagnostic_candidate": false,
-      "internal_import_count": 4,
+      "internal_import_count": 5,
       "legacy_candidate": false,
-      "line_count": 518,
+      "line_count": 420,
       "metadata": {
         "in_cycle": false,
         "python_module_name": "universal_visual_os_agent.actions.scaffolding"
@@ -2466,14 +2901,32 @@
     {
       "archive_candidate": false,
       "cleanup_recommendation": "keep",
+      "coupling_risk_notes": [],
+      "cross_package_import_count": 2,
+      "diagnostic_candidate": false,
+      "internal_import_count": 3,
+      "legacy_candidate": false,
+      "line_count": 119,
+      "metadata": {
+        "in_cycle": false,
+        "python_module_name": "universal_visual_os_agent.actions.scaffolding_models"
+      },
+      "path": "src/universal_visual_os_agent/actions/scaffolding_models.py",
+      "primary_role": "actions",
+      "production_criticality": "supporting",
+      "secondary_role": null
+    },
+    {
+      "archive_candidate": false,
+      "cleanup_recommendation": "keep",
       "coupling_risk_notes": [
         "facade_reexport_surface"
       ],
       "cross_package_import_count": 1,
       "diagnostic_candidate": false,
-      "internal_import_count": 4,
+      "internal_import_count": 7,
       "legacy_candidate": false,
-      "line_count": 82,
+      "line_count": 164,
       "metadata": {
         "in_cycle": false,
         "python_module_name": "universal_visual_os_agent.ai_architecture"
@@ -2508,6 +2961,28 @@
       "cleanup_recommendation": "review_for_split",
       "coupling_risk_notes": [
         "oversized_module",
+        "high_internal_import_count:12",
+        "high_cross_package_import_count:6"
+      ],
+      "cross_package_import_count": 6,
+      "diagnostic_candidate": false,
+      "internal_import_count": 12,
+      "legacy_candidate": false,
+      "line_count": 1293,
+      "metadata": {
+        "in_cycle": false,
+        "python_module_name": "universal_visual_os_agent.ai_architecture.cloud_planner"
+      },
+      "path": "src/universal_visual_os_agent/ai_architecture/cloud_planner.py",
+      "primary_role": "ai_contracts",
+      "production_criticality": "supporting",
+      "secondary_role": "planner_resolver_scaffolding"
+    },
+    {
+      "archive_candidate": false,
+      "cleanup_recommendation": "review_for_split",
+      "coupling_risk_notes": [
+        "oversized_module",
         "high_cross_package_import_count:5"
       ],
       "cross_package_import_count": 5,
@@ -2526,20 +3001,61 @@
     },
     {
       "archive_candidate": false,
+      "cleanup_recommendation": "review_for_split",
+      "coupling_risk_notes": [
+        "oversized_module"
+      ],
+      "cross_package_import_count": 2,
+      "diagnostic_candidate": false,
+      "internal_import_count": 4,
+      "legacy_candidate": false,
+      "line_count": 518,
+      "metadata": {
+        "in_cycle": false,
+        "python_module_name": "universal_visual_os_agent.ai_architecture.escalation_engine"
+      },
+      "path": "src/universal_visual_os_agent/ai_architecture/escalation_engine.py",
+      "primary_role": "ai_contracts",
+      "production_criticality": "supporting",
+      "secondary_role": "planner_resolver_scaffolding"
+    },
+    {
+      "archive_candidate": false,
       "cleanup_recommendation": "keep",
       "coupling_risk_notes": [
-        "high_cross_package_import_count:4"
+        "high_internal_import_count:12",
+        "high_cross_package_import_count:6"
       ],
-      "cross_package_import_count": 4,
+      "cross_package_import_count": 6,
       "diagnostic_candidate": false,
-      "internal_import_count": 7,
+      "internal_import_count": 12,
       "legacy_candidate": false,
-      "line_count": 130,
+      "line_count": 220,
       "metadata": {
         "in_cycle": false,
         "python_module_name": "universal_visual_os_agent.ai_architecture.interfaces"
       },
       "path": "src/universal_visual_os_agent/ai_architecture/interfaces.py",
+      "primary_role": "ai_contracts",
+      "production_criticality": "supporting",
+      "secondary_role": "planner_resolver_scaffolding"
+    },
+    {
+      "archive_candidate": false,
+      "cleanup_recommendation": "review_for_split",
+      "coupling_risk_notes": [
+        "oversized_module"
+      ],
+      "cross_package_import_count": 3,
+      "diagnostic_candidate": false,
+      "internal_import_count": 7,
+      "legacy_candidate": false,
+      "line_count": 847,
+      "metadata": {
+        "in_cycle": false,
+        "python_module_name": "universal_visual_os_agent.ai_architecture.local_visual_resolver"
+      },
+      "path": "src/universal_visual_os_agent/ai_architecture/local_visual_resolver.py",
       "primary_role": "ai_contracts",
       "production_criticality": "supporting",
       "secondary_role": "planner_resolver_scaffolding"
@@ -3838,14 +4354,14 @@
       "archive_candidate": false,
       "cleanup_recommendation": "keep",
       "coupling_risk_notes": [
-        "high_internal_import_count:15",
+        "high_internal_import_count:14",
         "facade_reexport_surface"
       ],
       "cross_package_import_count": 1,
       "diagnostic_candidate": false,
-      "internal_import_count": 15,
+      "internal_import_count": 14,
       "legacy_candidate": false,
-      "line_count": 151,
+      "line_count": 200,
       "metadata": {
         "in_cycle": false,
         "python_module_name": "universal_visual_os_agent.semantics"
@@ -3946,7 +4462,7 @@
       "diagnostic_candidate": false,
       "internal_import_count": 11,
       "legacy_candidate": false,
-      "line_count": 120,
+      "line_count": 103,
       "metadata": {
         "in_cycle": true,
         "python_module_name": "universal_visual_os_agent.semantics.interfaces"
@@ -4025,7 +4541,7 @@
       "diagnostic_candidate": false,
       "internal_import_count": 7,
       "legacy_candidate": false,
-      "line_count": 465,
+      "line_count": 466,
       "metadata": {
         "in_cycle": true,
         "python_module_name": "universal_visual_os_agent.semantics.ocr"
@@ -4259,7 +4775,7 @@
       "diagnostic_candidate": false,
       "internal_import_count": 4,
       "legacy_candidate": false,
-      "line_count": 52,
+      "line_count": 89,
       "metadata": {
         "in_cycle": false,
         "python_module_name": "universal_visual_os_agent.verification"
@@ -4280,7 +4796,7 @@
       "diagnostic_candidate": false,
       "internal_import_count": 2,
       "legacy_candidate": false,
-      "line_count": 445,
+      "line_count": 462,
       "metadata": {
         "in_cycle": true,
         "python_module_name": "universal_visual_os_agent.verification.explanations"
@@ -4299,9 +4815,9 @@
       ],
       "cross_package_import_count": 2,
       "diagnostic_candidate": false,
-      "internal_import_count": 6,
+      "internal_import_count": 5,
       "legacy_candidate": false,
-      "line_count": 637,
+      "line_count": 635,
       "metadata": {
         "in_cycle": true,
         "python_module_name": "universal_visual_os_agent.verification.goal_oriented"
@@ -4321,7 +4837,7 @@
       "diagnostic_candidate": false,
       "internal_import_count": 1,
       "legacy_candidate": false,
-      "line_count": 44,
+      "line_count": 45,
       "metadata": {
         "in_cycle": true,
         "python_module_name": "universal_visual_os_agent.verification.interfaces"
@@ -4341,7 +4857,7 @@
       "diagnostic_candidate": false,
       "internal_import_count": 3,
       "legacy_candidate": false,
-      "line_count": 244,
+      "line_count": 242,
       "metadata": {
         "in_cycle": true,
         "python_module_name": "universal_visual_os_agent.verification.models"
@@ -4454,7 +4970,43 @@
         "in_cycle": false,
         "python_module_name": null
       },
+      "path": "tests/test_cloud_planner_scaffolding.py",
+      "primary_role": "test_only",
+      "production_criticality": "non_production",
+      "secondary_role": "pytest_suite"
+    },
+    {
+      "archive_candidate": false,
+      "cleanup_recommendation": "retain_as_test_only",
+      "coupling_risk_notes": [],
+      "cross_package_import_count": 0,
+      "diagnostic_candidate": false,
+      "internal_import_count": 0,
+      "legacy_candidate": false,
+      "line_count": null,
+      "metadata": {
+        "in_cycle": false,
+        "python_module_name": null
+      },
       "path": "tests/test_config_models.py",
+      "primary_role": "test_only",
+      "production_criticality": "non_production",
+      "secondary_role": "pytest_suite"
+    },
+    {
+      "archive_candidate": false,
+      "cleanup_recommendation": "retain_as_test_only",
+      "coupling_risk_notes": [],
+      "cross_package_import_count": 0,
+      "diagnostic_candidate": false,
+      "internal_import_count": 0,
+      "legacy_candidate": false,
+      "line_count": null,
+      "metadata": {
+        "in_cycle": false,
+        "python_module_name": null
+      },
+      "path": "tests/test_deterministic_escalation_engine.py",
       "primary_role": "test_only",
       "production_criticality": "non_production",
       "secondary_role": "pytest_suite"
@@ -4509,6 +5061,42 @@
         "python_module_name": null
       },
       "path": "tests/test_goal_oriented_verification.py",
+      "primary_role": "test_only",
+      "production_criticality": "non_production",
+      "secondary_role": "pytest_suite"
+    },
+    {
+      "archive_candidate": false,
+      "cleanup_recommendation": "retain_as_test_only",
+      "coupling_risk_notes": [],
+      "cross_package_import_count": 0,
+      "diagnostic_candidate": false,
+      "internal_import_count": 0,
+      "legacy_candidate": false,
+      "line_count": null,
+      "metadata": {
+        "in_cycle": false,
+        "python_module_name": null
+      },
+      "path": "tests/test_import_boundaries.py",
+      "primary_role": "test_only",
+      "production_criticality": "non_production",
+      "secondary_role": "pytest_suite"
+    },
+    {
+      "archive_candidate": false,
+      "cleanup_recommendation": "retain_as_test_only",
+      "coupling_risk_notes": [],
+      "cross_package_import_count": 0,
+      "diagnostic_candidate": false,
+      "internal_import_count": 0,
+      "legacy_candidate": false,
+      "line_count": null,
+      "metadata": {
+        "in_cycle": false,
+        "python_module_name": null
+      },
+      "path": "tests/test_local_visual_resolver_scaffolding.py",
       "primary_role": "test_only",
       "production_criticality": "non_production",
       "secondary_role": "pytest_suite"
@@ -5087,6 +5675,7 @@
       ".tmp_test_artifacts/1187b27d80b445d59cfed00297eb3d24/agent.sqlite3",
       ".tmp_test_artifacts/1201655668ca49dc9ad2c5edef14bd4d/agent.sqlite3",
       ".tmp_test_artifacts/1218f54081ad492a9579a876ec6fe10c/agent.sqlite3",
+      ".tmp_test_artifacts/133799fcc8554dd1b255965c4e3c4234/agent.sqlite3",
       ".tmp_test_artifacts/1496161461a047f680c8c84a6f6dcdc4/agent.sqlite3",
       ".tmp_test_artifacts/14ee3048239f4df59da5d0af2d5331c4/agent.sqlite3",
       ".tmp_test_artifacts/1cbe4b2cef0842809ed553d348ef921d/agent.sqlite3",
@@ -5108,6 +5697,7 @@
       ".tmp_test_artifacts/3d5b44c7eb584b23b490097e36df1380/agent.sqlite3",
       ".tmp_test_artifacts/3f2da13e45394126892bdcd4ceda17a8/agent.sqlite3",
       ".tmp_test_artifacts/420ac1d92c8c4449a88b033a37e595ad/agent.sqlite3",
+      ".tmp_test_artifacts/47738f93f97d4b82bbe15bc0f55ec4d3/agent.sqlite3",
       ".tmp_test_artifacts/49778acd788940b3bb4a5b5224369891/agent.sqlite3",
       ".tmp_test_artifacts/4a62183db98f437ebe79c3fbd992ebc0/agent.sqlite3",
       ".tmp_test_artifacts/4f896fff0d39447380c78a7f53954142/agent.sqlite3",
@@ -5120,6 +5710,7 @@
       ".tmp_test_artifacts/5f55d0045be74b1195797482b3e0d337/agent.sqlite3",
       ".tmp_test_artifacts/605e33abfb36499d8fc04a782685939c/agent.sqlite3",
       ".tmp_test_artifacts/6116eb70770b42dd927c826b9d6dd47e/agent.sqlite3",
+      ".tmp_test_artifacts/61f8a6fc9f244bfe8c82fae858955740/agent.sqlite3",
       ".tmp_test_artifacts/6278de17782e4f4c917ff3abf94581b9/agent.sqlite3",
       ".tmp_test_artifacts/633dae1d99f34f7e9d05dd0a6aff922e/agent.sqlite3",
       ".tmp_test_artifacts/6480a83a30044622ac84f3938bc3142e/agent.sqlite3",
@@ -5129,19 +5720,27 @@
       ".tmp_test_artifacts/69d3723a04484457a0685d935cabad58/agent.sqlite3",
       ".tmp_test_artifacts/6cb1e6d6dbb44486b15a1ed6a12886f5/agent.sqlite3",
       ".tmp_test_artifacts/7016729db8ca42448994eab129ca6a1a/agent.sqlite3",
+      ".tmp_test_artifacts/718a94ae228d4586b7777a24ff5d6562/agent.sqlite3",
       ".tmp_test_artifacts/71fd8e15a0a045ce995625334db3bb77/agent.sqlite3",
       ".tmp_test_artifacts/73957570a910427885f40bb7917975ea/agent.sqlite3",
       ".tmp_test_artifacts/73f3d4202e6b49d596092cf0fe34e8d1/agent.sqlite3",
       ".tmp_test_artifacts/7400b80e47e44d1fb6ebaf6eac3b72a9/agent.sqlite3",
       ".tmp_test_artifacts/742df26d3e11487fb1b07a7e86fdba41/agent.sqlite3",
       ".tmp_test_artifacts/754b9946442d4eef9a9086ff501dedbb/agent.sqlite3",
+      ".tmp_test_artifacts/76bda0e71d2444d59454f4d1633eae3f/agent.sqlite3",
+      ".tmp_test_artifacts/7883aec6937e4308bd219a133573c8cc/agent.sqlite3",
+      ".tmp_test_artifacts/793faa5d58644f1d9ef343d75e531291/agent.sqlite3",
       ".tmp_test_artifacts/7945d243fd3d49e1bc972ad306bbe1b1/agent.sqlite3",
       ".tmp_test_artifacts/79d8010e25e541bd92eb806580e494e9/agent.sqlite3",
+      ".tmp_test_artifacts/8127b6b4d8084fbaaca9aae79b6c0503/agent.sqlite3",
       ".tmp_test_artifacts/82a1c46645314128b9ecf1951932b3bb/agent.sqlite3",
+      ".tmp_test_artifacts/83249e3055c449799482465dcb4b5e65/agent.sqlite3",
       ".tmp_test_artifacts/83893ba038a546799336d63bf7916ebf/agent.sqlite3",
       ".tmp_test_artifacts/86c3c0dabec5401c89158a8671d558ba/agent.sqlite3",
+      ".tmp_test_artifacts/8a93dda6256d4c1cbd812ea7379a7d44/agent.sqlite3",
       ".tmp_test_artifacts/8d489f88d2d04b5fa42edce4941ebd61/agent.sqlite3",
       ".tmp_test_artifacts/8f2cc5875a52476b85bddbb1c4e482bd/agent.sqlite3",
+      ".tmp_test_artifacts/8f3cfe3fdc7d43c3aebf10d25c733a5f/agent.sqlite3",
       ".tmp_test_artifacts/901098bf301646bb8182dc188e8f3ef7/agent.sqlite3",
       ".tmp_test_artifacts/952e065757a043e780625a3b2b1760df/agent.sqlite3",
       ".tmp_test_artifacts/982c2b76149c48a58f40936146e4a99d/agent.sqlite3",
@@ -5154,6 +5753,7 @@
       ".tmp_test_artifacts/a9e8aec3585f4dc8b8b4efbbd44cec77/agent.sqlite3",
       ".tmp_test_artifacts/af551b1281404e69becdc8d76e794640/agent.sqlite3",
       ".tmp_test_artifacts/b010b5910da94933bac48eaeaf6e28a9/agent.sqlite3",
+      ".tmp_test_artifacts/b18835ca61e94f73a5a0e3bee0fa5a61/agent.sqlite3",
       ".tmp_test_artifacts/b1e642bf1dde4cb09ff2f1e891689149/agent.sqlite3",
       ".tmp_test_artifacts/b2b4be04af764c4984605cf53a4aa7a2/agent.sqlite3",
       ".tmp_test_artifacts/b3b52108c0f44c30a88da4c8b4009d02/agent.sqlite3",
@@ -5164,9 +5764,11 @@
       ".tmp_test_artifacts/bc2b4edf031e45988fb3bc58f3bd6062/agent.sqlite3",
       ".tmp_test_artifacts/bd6366a5dd144f2085a11e957ff3b7d5/agent.sqlite3",
       ".tmp_test_artifacts/bf117972b60546dfb4be013ae32b7291/agent.sqlite3",
+      ".tmp_test_artifacts/bf324ebfc293467f918e6e994309245a/agent.sqlite3",
       ".tmp_test_artifacts/c2cfbd1b01274b23b6a806eee4bb9929/agent.sqlite3",
       ".tmp_test_artifacts/c37349eb12c94871a7cb373a2f742f59/agent.sqlite3",
       ".tmp_test_artifacts/c431cabf9f034747be6d7c6a4e343f1f/agent.sqlite3",
+      ".tmp_test_artifacts/c590bc4cf476449798bb3c57727d9108/agent.sqlite3",
       ".tmp_test_artifacts/c70810433b3d4a0aab7de72847abd261/agent.sqlite3",
       ".tmp_test_artifacts/cbcc6e72002f4a4094f0c388ae463a68/agent.sqlite3",
       ".tmp_test_artifacts/cfaae46b8ab14946be124a131072464f/agent.sqlite3",
@@ -5185,22 +5787,23 @@
       ".tmp_test_artifacts/ed5aec9b35ae4daca831542a97ab9645/agent.sqlite3",
       ".tmp_test_artifacts/eda7db05b7854e20810b1d060f3bd214/agent.sqlite3",
       ".tmp_test_artifacts/f3942666b7e24809a62b5934e9885a4e/agent.sqlite3",
+      ".tmp_test_artifacts/f3f0a43f848341a29d7db716024e7807/agent.sqlite3",
       ".tmp_test_artifacts/f743315f1b134b8a94b74c57d329cc38/agent.sqlite3",
       ".tmp_test_artifacts/f7526c103e924568bdc8d03473b711d3/agent.sqlite3",
       ".tmp_test_artifacts/f7b67d78cca14302aeb34091d2bb3f26/agent.sqlite3",
       ".tmp_test_artifacts/f83e8061b95b4078bcad43bd3307acfb/agent.sqlite3",
       ".tmp_test_artifacts/f8e76d8f03734c02b6e9d3d4a277fca9/agent.sqlite3",
       ".tmp_test_artifacts/fb53704f803e46a7b52924c65da275dc/agent.sqlite3",
-      "docs/NEXT_STEPS.md",
-      "docs/PROJECT_STATUS.md"
+      "docs/archive/NEXT_STEPS.md",
+      "docs/archive/PROJECT_STATUS.md"
     ],
     "cleanup_recommendation_counts": {
-      "keep": 75,
+      "keep": 84,
       "retain_as_diagnostic_only": 4,
-      "retain_as_test_only": 40,
-      "review_for_archive": 117,
+      "retain_as_test_only": 44,
+      "review_for_archive": 132,
       "review_for_cycle_isolation": 8,
-      "review_for_split": 30
+      "review_for_split": 34
     },
     "cycle_risk_paths": [
       "src/universal_visual_os_agent/actions/interfaces.py",
@@ -5222,10 +5825,14 @@
     ],
     "oversized_paths": [
       "src/universal_visual_os_agent/actions/dry_run.py",
+      "src/universal_visual_os_agent/actions/dry_run_models.py",
       "src/universal_visual_os_agent/actions/safe_click.py",
       "src/universal_visual_os_agent/actions/scaffolding.py",
       "src/universal_visual_os_agent/ai_architecture/arbitration.py",
+      "src/universal_visual_os_agent/ai_architecture/cloud_planner.py",
       "src/universal_visual_os_agent/ai_architecture/contracts.py",
+      "src/universal_visual_os_agent/ai_architecture/escalation_engine.py",
+      "src/universal_visual_os_agent/ai_architecture/local_visual_resolver.py",
       "src/universal_visual_os_agent/ai_architecture/ontology.py",
       "src/universal_visual_os_agent/ai_boundary/models.py",
       "src/universal_visual_os_agent/ai_boundary/validation.py",
@@ -5261,22 +5868,22 @@
       "src/universal_visual_os_agent/verification/goal_oriented.py"
     ],
     "primary_role_counts": {
-      "actions": 6,
-      "ai_contracts": 9,
+      "actions": 8,
+      "ai_contracts": 12,
       "core": 50,
       "diagnostic": 4,
-      "docs": 7,
+      "docs": 15,
       "runtime": 8,
       "scenario": 7,
       "semantics": 17,
-      "support": 126,
-      "test_only": 40
+      "support": 141,
+      "test_only": 44
     },
     "production_criticality_counts": {
       "critical": 35,
-      "non_production": 173,
-      "supporting": 66
+      "non_production": 200,
+      "supporting": 71
     },
-    "total_file_count": 274
+    "total_file_count": 306
   }
 }

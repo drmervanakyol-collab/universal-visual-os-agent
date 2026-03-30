@@ -3,7 +3,7 @@
 - Source inventory: `docs/REPO_INVENTORY.json`
 - Inventory schema: `repo_inventory_v1`
 - Boundary schema: `context_boundary_v1`
-- Generated on: `2026-03-30`
+- Generated on: `2026-03-31`
 
 ## Boundary Intent
 
@@ -14,6 +14,7 @@
 
 ### Always-Include Documents
 - `AGENTS.md`
+- `docs/README.md`
 - `docs/spec.md`
 - `docs/execplan.md`
 - `docs/CONTEXT_BOUNDARIES.md`
@@ -71,12 +72,11 @@
 
 ### Archive Candidates
 - `.tmp_test_artifacts/**`
-- `docs/NEXT_STEPS.md`
-- `docs/PROJECT_STATUS.md`
+- `docs/archive/**`
 
 ### Test-Only Context
 - `tests/**`
-- Test-only file count: `40`
+- Test-only file count: `44`
 
 ### Re-Export Surfaces To Avoid In Default AI Packs
 - `src/universal_visual_os_agent/actions/__init__.py`
@@ -101,9 +101,13 @@
 
 ### Split Candidates
 - `src/universal_visual_os_agent/actions/dry_run.py`
+- `src/universal_visual_os_agent/actions/dry_run_models.py`
 - `src/universal_visual_os_agent/actions/scaffolding.py`
 - `src/universal_visual_os_agent/ai_architecture/arbitration.py`
+- `src/universal_visual_os_agent/ai_architecture/cloud_planner.py`
 - `src/universal_visual_os_agent/ai_architecture/contracts.py`
+- `src/universal_visual_os_agent/ai_architecture/escalation_engine.py`
+- `src/universal_visual_os_agent/ai_architecture/local_visual_resolver.py`
 - `src/universal_visual_os_agent/ai_architecture/ontology.py`
 - `src/universal_visual_os_agent/ai_boundary/models.py`
 - `src/universal_visual_os_agent/ai_boundary/validation.py`
@@ -147,8 +151,8 @@
 - `verification`: 4
 
 ### Split Candidates By Domain
-- `actions`: 2
-- `ai_architecture`: 3
+- `actions`: 3
+- `ai_architecture`: 6
 - `ai_boundary`: 2
 - `app`: 1
 - `integrations`: 5
@@ -157,7 +161,7 @@
 - `testing`: 1
 
 ### Archive Candidates By Domain
-- `.tmp_test_artifacts`: 115
+- `.tmp_test_artifacts`: 130
 - `docs`: 2
 
 ## Recommended Follow-Up Order

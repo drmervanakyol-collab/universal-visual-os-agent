@@ -1,5 +1,7 @@
 # Project Status
 
+Archived status snapshot. Active documentation entry points live in `docs/README.md`.
+
 ## Completed Phases
 
 - Phase 0: planning, compatibility review, and repo structure definition

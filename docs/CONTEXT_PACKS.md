@@ -1,13 +1,14 @@
 # Context Packs
 
 - Schema: `context_packs_v1`
-- Generated on: `2026-03-30`
+- Generated on: `2026-03-31`
 - Source artifacts: `docs/REPO_INVENTORY.json`, `docs/CONTEXT_BOUNDARIES.json`, `docs/SYMBOL_MAP.json`
 
 ## Shared Defaults
 
 ### Always-Include Documents
 - `AGENTS.md`
+- `docs/README.md`
 - `docs/spec.md`
 - `docs/execplan.md`
 - `docs/CONTEXT_BOUNDARIES.md`
@@ -16,8 +17,7 @@
 ### Shared Exclusions
 - `.tmp_test_artifacts/**`
 - `tests/**`
-- `docs/NEXT_STEPS.md`
-- `docs/PROJECT_STATUS.md`
+- `docs/archive/**`
 
 ## Packs
 

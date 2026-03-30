@@ -1,5 +1,7 @@
 # Next Steps
 
+Archived planning snapshot. Active documentation entry points live in `docs/README.md`.
+
 ## Moving From Skeleton To Safe Integrations
 
 - Finalize the safety contract for `safe_action_mode`, including explicit enable flags, operator confirmation boundaries, and failure downgrade behavior.

@@ -1,12 +1,13 @@
 {
   "always_include_documents": [
     "AGENTS.md",
+    "docs/README.md",
     "docs/spec.md",
     "docs/execplan.md",
     "docs/CONTEXT_BOUNDARIES.md",
     "docs/SYMBOL_MAP.md"
   ],
-  "generated_on": "2026-03-30",
+  "generated_on": "2026-03-31",
   "packs": [
     {
       "common_failure_modes": [
@@ -370,8 +371,7 @@
   "shared_exclusions": [
     ".tmp_test_artifacts/**",
     "tests/**",
-    "docs/NEXT_STEPS.md",
-    "docs/PROJECT_STATUS.md"
+    "docs/archive/**"
   ],
   "source_artifacts": [
     "docs/REPO_INVENTORY.json",

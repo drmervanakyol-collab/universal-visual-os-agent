@@ -1,6 +1,6 @@
 # Universal Visual OS-Agent
 
-Windows-first, Python 3.14, safety-first visual OS-agent skeleton built from [docs/SPEC.md](docs/SPEC.md) and [docs/EXECPLAN.md](docs/EXECPLAN.md).
+Windows-first, Python 3.14, safety-first visual OS-agent skeleton built from [docs/spec.md](docs/spec.md) and [docs/execplan.md](docs/execplan.md).
 
 ## Current State
 
@@ -78,8 +78,9 @@ python -m compileall src tests
 
 ## Project Docs
 
-- [docs/SPEC.md](docs/SPEC.md): source-of-truth requirements
-- [docs/EXECPLAN.md](docs/EXECPLAN.md): phased implementation plan
-- [docs/PROJECT_STATUS.md](docs/PROJECT_STATUS.md): current implementation summary
-- [docs/NEXT_STEPS.md](docs/NEXT_STEPS.md): what is needed to move from skeleton to safe integrations
+- [docs/README.md](docs/README.md): active docs index and archive guide
+- [docs/spec.md](docs/spec.md): source-of-truth requirements
+- [docs/execplan.md](docs/execplan.md): phased implementation plan
 - [docs/VALIDATION_REPORT_TEMPLATE.md](docs/VALIDATION_REPORT_TEMPLATE.md): report template for future delivery passes
+- [docs/archive/PROJECT_STATUS.md](docs/archive/PROJECT_STATUS.md): archived implementation snapshot
+- [docs/archive/NEXT_STEPS.md](docs/archive/NEXT_STEPS.md): archived planning snapshot
