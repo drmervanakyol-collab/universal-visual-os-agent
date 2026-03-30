@@ -20,6 +20,18 @@ class SemanticTextStatus(StrEnum):
     unavailable = "unavailable"
 
 
+class SemanticLayoutRegionKind(StrEnum):
+    """High-level geometric region semantics for observe-only layout analysis."""
+
+    full_surface = "full_surface"
+    header = "header"
+    content = "content"
+    footer = "footer"
+    left_sidebar = "left_sidebar"
+    right_sidebar = "right_sidebar"
+    modal_like = "modal_like"
+
+
 @dataclass(slots=True, frozen=True, kw_only=True)
 class SemanticRegionBlock:
     """A non-actionable analysis region derived from the observed frame."""
@@ -40,6 +52,32 @@ class SemanticRegionBlock:
             raise ValueError("label must not be empty.")
         if not self.role:
             raise ValueError("role must not be empty.")
+
+
+@dataclass(slots=True, frozen=True, kw_only=True)
+class SemanticLayoutRegion:
+    """A geometric region derived from semantic scaffold and OCR-aware analysis."""
+
+    region_id: str
+    kind: SemanticLayoutRegionKind
+    label: str
+    bounds: NormalizedBBox
+    node_id: str | None = None
+    parent_region_id: str | None = None
+    source_region_block_ids: tuple[str, ...] = ()
+    source_text_region_ids: tuple[str, ...] = ()
+    visible: bool = True
+    enabled: bool = False
+    confidence: float | None = None
+    metadata: Mapping[str, object] = field(default_factory=dict)
+
+    def __post_init__(self) -> None:
+        if not self.region_id:
+            raise ValueError("region_id must not be empty.")
+        if not self.label:
+            raise ValueError("label must not be empty.")
+        if self.confidence is not None and not 0.0 <= self.confidence <= 1.0:
+            raise ValueError("confidence must be between 0.0 and 1.0 inclusive.")
 
 
 @dataclass(slots=True, frozen=True, kw_only=True)
@@ -134,6 +172,7 @@ class SemanticStateSnapshot:
 
     layout_tree: SemanticLayoutTree | None = None
     region_blocks: tuple[SemanticRegionBlock, ...] = ()
+    layout_regions: tuple[SemanticLayoutRegion, ...] = ()
     text_regions: tuple[SemanticTextRegion, ...] = ()
     text_blocks: tuple[SemanticTextBlock, ...] = ()
     candidates: tuple[SemanticCandidate, ...] = ()
@@ -145,6 +184,9 @@ class SemanticStateSnapshot:
         region_block_ids = {block.block_id for block in self.region_blocks}
         if len(region_block_ids) != len(self.region_blocks):
             raise ValueError("region block identifiers must be unique within a snapshot.")
+        layout_region_ids = {region.region_id for region in self.layout_regions}
+        if len(layout_region_ids) != len(self.layout_regions):
+            raise ValueError("layout region identifiers must be unique within a snapshot.")
         text_region_ids = {region.region_id for region in self.text_regions}
         if len(text_region_ids) != len(self.text_regions):
             raise ValueError("text region identifiers must be unique within a snapshot.")

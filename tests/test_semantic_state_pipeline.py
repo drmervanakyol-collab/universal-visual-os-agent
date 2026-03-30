@@ -6,6 +6,8 @@ from universal_visual_os_agent.geometry import NormalizedBBox
 from universal_visual_os_agent.semantics import (
     SemanticCandidate,
     SemanticLayoutTree,
+    SemanticLayoutRegion,
+    SemanticLayoutRegionKind,
     SemanticNode,
     SemanticRegionBlock,
     SemanticStateSnapshot,
@@ -75,6 +77,18 @@ def test_semantic_snapshot_rejects_duplicate_region_block_ids() -> None:
 
     with pytest.raises(ValueError, match="region block identifiers must be unique"):
         SemanticStateSnapshot(region_blocks=(block, block))
+
+
+def test_semantic_snapshot_rejects_duplicate_layout_region_ids() -> None:
+    layout_region = SemanticLayoutRegion(
+        region_id="layout-region-1",
+        kind=SemanticLayoutRegionKind.content,
+        label="Content Region",
+        bounds=_button_bounds(),
+    )
+
+    with pytest.raises(ValueError, match="layout region identifiers must be unique"):
+        SemanticStateSnapshot(layout_regions=(layout_region, layout_region))
 
 
 def test_semantic_snapshot_rejects_duplicate_text_region_ids() -> None:

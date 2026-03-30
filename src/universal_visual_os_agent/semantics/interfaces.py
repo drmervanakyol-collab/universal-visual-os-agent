@@ -6,6 +6,9 @@ from typing import Protocol
 
 from universal_visual_os_agent.perception.models import CaptureResult
 from universal_visual_os_agent.semantics.building import SemanticStateBuildResult
+from universal_visual_os_agent.semantics.layout_region_analysis import (
+    LayoutRegionAnalysisResult,
+)
 from universal_visual_os_agent.semantics.ocr import (
     TextExtractionRequest,
     TextExtractionResponse,
@@ -14,6 +17,7 @@ from universal_visual_os_agent.semantics.ocr import (
 from universal_visual_os_agent.semantics.preparation import (
     SemanticExtractionPreparationResult,
 )
+from universal_visual_os_agent.semantics.state import SemanticStateSnapshot
 
 
 class SemanticExtractionInputAdapter(Protocol):
@@ -46,3 +50,10 @@ class TextExtractionBackend(Protocol):
 
     def run(self, request: TextExtractionRequest) -> TextExtractionResponse:
         """Return a structured OCR/text extraction response."""
+
+
+class LayoutRegionAnalyzer(Protocol):
+    """Analyze a semantic snapshot into higher-level geometric layout regions."""
+
+    def analyze(self, snapshot: SemanticStateSnapshot) -> LayoutRegionAnalysisResult:
+        """Return a structured layout region analysis result."""

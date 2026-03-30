@@ -5,12 +5,17 @@ from universal_visual_os_agent.semantics.building import (
     SemanticStateBuildResult,
 )
 from universal_visual_os_agent.semantics.interfaces import (
+    LayoutRegionAnalyzer,
     SemanticExtractionInputAdapter,
     SemanticStateBuilder,
     TextExtractionBackend,
     TextExtractionAdapter,
 )
 from universal_visual_os_agent.semantics.layout import SemanticLayoutTree, SemanticNode
+from universal_visual_os_agent.semantics.layout_region_analysis import (
+    GeometricLayoutRegionAnalyzer,
+    LayoutRegionAnalysisResult,
+)
 from universal_visual_os_agent.semantics.ocr import (
     PreparedSemanticTextExtractionAdapter,
     TextExtractionRegionRequest,
@@ -28,6 +33,8 @@ from universal_visual_os_agent.semantics.preparation import (
 )
 from universal_visual_os_agent.semantics.state import (
     SemanticCandidate,
+    SemanticLayoutRegion,
+    SemanticLayoutRegionKind,
     SemanticRegionBlock,
     SemanticStateSnapshot,
     SemanticTextBlock,
@@ -37,6 +44,9 @@ from universal_visual_os_agent.semantics.state import (
 
 __all__ = [
     "FullDesktopCaptureSemanticInputAdapter",
+    "GeometricLayoutRegionAnalyzer",
+    "LayoutRegionAnalysisResult",
+    "LayoutRegionAnalyzer",
     "PreparedSemanticStateBuilder",
     "PreparedSemanticTextExtractionAdapter",
     "RapidOcrTextExtractionBackend",
@@ -45,6 +55,8 @@ __all__ = [
     "SemanticExtractionInputAdapter",
     "SemanticExtractionPreparationResult",
     "SemanticLayoutTree",
+    "SemanticLayoutRegion",
+    "SemanticLayoutRegionKind",
     "SemanticNode",
     "SemanticRegionBlock",
     "SemanticTextRegion",
