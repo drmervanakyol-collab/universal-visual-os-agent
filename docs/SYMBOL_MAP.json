@@ -1,0 +1,1036 @@
+{
+  "generated_on": "2026-03-30",
+  "modules": [
+    {
+      "important_data_models": [
+        "ActionPrecondition",
+        "ActionTargetValidation",
+        "ActionSafetyGate",
+        "ActionIntent",
+        "ActionResult"
+      ],
+      "important_enums": [
+        "ActionIntentStatus",
+        "ActionIntentReasonCode",
+        "ActionRequirementStatus"
+      ],
+      "important_protocols": [],
+      "internal_dependencies": [
+        "universal_visual_os_agent.geometry.models"
+      ],
+      "line_count": 133,
+      "module_name": "universal_visual_os_agent.actions.models",
+      "package": "actions",
+      "path": "src/universal_visual_os_agent/actions/models.py",
+      "primary_purpose": "Action intent and result models.",
+      "public_classes": [
+        {
+          "kind": "enum",
+          "name": "ActionIntentStatus"
+        },
+        {
+          "kind": "enum",
+          "name": "ActionIntentReasonCode"
+        },
+        {
+          "kind": "enum",
+          "name": "ActionRequirementStatus"
+        },
+        {
+          "kind": "dataclass",
+          "name": "ActionPrecondition"
+        },
+        {
+          "kind": "dataclass",
+          "name": "ActionTargetValidation"
+        },
+        {
+          "kind": "dataclass",
+          "name": "ActionSafetyGate"
+        },
+        {
+          "kind": "dataclass",
+          "name": "ActionIntent"
+        },
+        {
+          "kind": "dataclass",
+          "name": "ActionResult"
+        }
+      ],
+      "public_functions": [],
+      "public_symbol_count": 8
+    },
+    {
+      "important_data_models": [],
+      "important_enums": [],
+      "important_protocols": [
+        "SharedOntologyBinder",
+        "PlannerContractBuilder",
+        "ResolverContractBuilder",
+        "EscalationPolicyDecider",
+        "AiArbitrator"
+      ],
+      "internal_dependencies": [
+        "universal_visual_os_agent.ai_architecture.arbitration",
+        "universal_visual_os_agent.ai_architecture.contracts",
+        "universal_visual_os_agent.ai_architecture.ontology",
+        "universal_visual_os_agent.ai_boundary.models",
+        "universal_visual_os_agent.semantics.candidate_exposure",
+        "universal_visual_os_agent.semantics.state",
+        "universal_visual_os_agent.verification.models"
+      ],
+      "line_count": 129,
+      "module_name": "universal_visual_os_agent.ai_architecture.interfaces",
+      "package": "ai_architecture",
+      "path": "src/universal_visual_os_agent/ai_architecture/interfaces.py",
+      "primary_purpose": "Interfaces for shared AI ontology, contracts, and arbitration scaffolding.",
+      "public_classes": [
+        {
+          "kind": "protocol",
+          "name": "SharedOntologyBinder"
+        },
+        {
+          "kind": "protocol",
+          "name": "PlannerContractBuilder"
+        },
+        {
+          "kind": "protocol",
+          "name": "ResolverContractBuilder"
+        },
+        {
+          "kind": "protocol",
+          "name": "EscalationPolicyDecider"
+        },
+        {
+          "kind": "protocol",
+          "name": "AiArbitrator"
+        }
+      ],
+      "public_functions": [],
+      "public_symbol_count": 5
+    },
+    {
+      "important_data_models": [],
+      "important_enums": [],
+      "important_protocols": [
+        "PlannerBoundaryValidator",
+        "ResolverBoundaryValidator"
+      ],
+      "internal_dependencies": [
+        "universal_visual_os_agent.ai_boundary.models"
+      ],
+      "line_count": 37,
+      "module_name": "universal_visual_os_agent.ai_boundary.interfaces",
+      "package": "ai_boundary",
+      "path": "src/universal_visual_os_agent/ai_boundary/interfaces.py",
+      "primary_purpose": "Interfaces for structured AI-boundary validation.",
+      "public_classes": [
+        {
+          "kind": "protocol",
+          "name": "PlannerBoundaryValidator"
+        },
+        {
+          "kind": "protocol",
+          "name": "ResolverBoundaryValidator"
+        }
+      ],
+      "public_functions": [],
+      "public_symbol_count": 2
+    },
+    {
+      "important_data_models": [],
+      "important_enums": [],
+      "important_protocols": [
+        "ObservationProvider",
+        "FrameDiffer",
+        "SemanticRebuilder",
+        "LoopPlanner",
+        "TransitionVerifier",
+        "RecoveryLoader",
+        "RecoveryReconciler",
+        "LoopActionExecutor"
+      ],
+      "internal_dependencies": [
+        "universal_visual_os_agent.actions.models",
+        "universal_visual_os_agent.app.models",
+        "universal_visual_os_agent.config.models",
+        "universal_visual_os_agent.config.modes",
+        "universal_visual_os_agent.perception.models",
+        "universal_visual_os_agent.recovery.models",
+        "universal_visual_os_agent.semantics.state",
+        "universal_visual_os_agent.verification.models"
+      ],
+      "line_count": 103,
+      "module_name": "universal_visual_os_agent.app.interfaces",
+      "package": "app",
+      "path": "src/universal_visual_os_agent/app/interfaces.py",
+      "primary_purpose": "Async-friendly orchestration protocols.",
+      "public_classes": [
+        {
+          "kind": "protocol",
+          "name": "ObservationProvider"
+        },
+        {
+          "kind": "protocol",
+          "name": "FrameDiffer"
+        },
+        {
+          "kind": "protocol",
+          "name": "SemanticRebuilder"
+        },
+        {
+          "kind": "protocol",
+          "name": "LoopPlanner"
+        },
+        {
+          "kind": "protocol",
+          "name": "TransitionVerifier"
+        },
+        {
+          "kind": "protocol",
+          "name": "RecoveryLoader"
+        },
+        {
+          "kind": "protocol",
+          "name": "RecoveryReconciler"
+        },
+        {
+          "kind": "protocol",
+          "name": "LoopActionExecutor"
+        }
+      ],
+      "public_functions": [],
+      "public_symbol_count": 8
+    },
+    {
+      "important_data_models": [
+        "FrameDiff",
+        "LoopPlan",
+        "RetryPolicy",
+        "LoopRequest",
+        "LoopResult"
+      ],
+      "important_enums": [
+        "LoopStage",
+        "LoopStatus"
+      ],
+      "important_protocols": [],
+      "internal_dependencies": [
+        "universal_visual_os_agent.actions.models",
+        "universal_visual_os_agent.perception.models",
+        "universal_visual_os_agent.planning.models",
+        "universal_visual_os_agent.policy.models",
+        "universal_visual_os_agent.recovery.models",
+        "universal_visual_os_agent.semantics.state",
+        "universal_visual_os_agent.verification.models"
+      ],
+      "line_count": 105,
+      "module_name": "universal_visual_os_agent.app.models",
+      "package": "app",
+      "path": "src/universal_visual_os_agent/app/models.py",
+      "primary_purpose": "Async orchestration models for the main loop skeleton.",
+      "public_classes": [
+        {
+          "kind": "enum",
+          "name": "LoopStage"
+        },
+        {
+          "kind": "enum",
+          "name": "LoopStatus"
+        },
+        {
+          "kind": "dataclass",
+          "name": "FrameDiff"
+        },
+        {
+          "kind": "dataclass",
+          "name": "LoopPlan"
+        },
+        {
+          "kind": "dataclass",
+          "name": "RetryPolicy"
+        },
+        {
+          "kind": "dataclass",
+          "name": "LoopRequest"
+        },
+        {
+          "kind": "dataclass",
+          "name": "LoopResult"
+        }
+      ],
+      "public_functions": [],
+      "public_symbol_count": 7
+    },
+    {
+      "important_data_models": [],
+      "important_enums": [],
+      "important_protocols": [
+        "AuditSink"
+      ],
+      "internal_dependencies": [
+        "universal_visual_os_agent.audit.models"
+      ],
+      "line_count": 15,
+      "module_name": "universal_visual_os_agent.audit.interfaces",
+      "package": "audit",
+      "path": "src/universal_visual_os_agent/audit/interfaces.py",
+      "primary_purpose": "Audit sink interfaces.",
+      "public_classes": [
+        {
+          "kind": "protocol",
+          "name": "AuditSink"
+        }
+      ],
+      "public_functions": [],
+      "public_symbol_count": 1
+    },
+    {
+      "important_data_models": [
+        "AuditEvent"
+      ],
+      "important_enums": [],
+      "important_protocols": [],
+      "internal_dependencies": [],
+      "line_count": 19,
+      "module_name": "universal_visual_os_agent.audit.models",
+      "package": "audit",
+      "path": "src/universal_visual_os_agent/audit/models.py",
+      "primary_purpose": "Audit models for observable system behavior.",
+      "public_classes": [
+        {
+          "kind": "dataclass",
+          "name": "AuditEvent"
+        }
+      ],
+      "public_functions": [],
+      "public_symbol_count": 1
+    },
+    {
+      "important_data_models": [
+        "LoggingConfig",
+        "PersistenceConfig",
+        "ReplayConfig",
+        "RunConfig"
+      ],
+      "important_enums": [],
+      "important_protocols": [],
+      "internal_dependencies": [
+        "universal_visual_os_agent.config.modes"
+      ],
+      "line_count": 141,
+      "module_name": "universal_visual_os_agent.config.models",
+      "package": "config",
+      "path": "src/universal_visual_os_agent/config/models.py",
+      "primary_purpose": "Dataclass-based configuration with safe defaults.",
+      "public_classes": [
+        {
+          "kind": "dataclass",
+          "name": "LoggingConfig"
+        },
+        {
+          "kind": "dataclass",
+          "name": "PersistenceConfig"
+        },
+        {
+          "kind": "dataclass",
+          "name": "ReplayConfig"
+        },
+        {
+          "kind": "dataclass",
+          "name": "RunConfig"
+        }
+      ],
+      "public_functions": [],
+      "public_symbol_count": 4
+    },
+    {
+      "important_data_models": [],
+      "important_enums": [],
+      "important_protocols": [
+        "Clock",
+        "EventSink"
+      ],
+      "internal_dependencies": [
+        "universal_visual_os_agent.core.events"
+      ],
+      "line_count": 23,
+      "module_name": "universal_visual_os_agent.core.interfaces",
+      "package": "core",
+      "path": "src/universal_visual_os_agent/core/interfaces.py",
+      "primary_purpose": "Shared low-level interfaces.",
+      "public_classes": [
+        {
+          "kind": "protocol",
+          "name": "Clock"
+        },
+        {
+          "kind": "protocol",
+          "name": "EventSink"
+        }
+      ],
+      "public_functions": [],
+      "public_symbol_count": 2
+    },
+    {
+      "important_data_models": [],
+      "important_enums": [],
+      "important_protocols": [
+        "ScreenMetricsProvider"
+      ],
+      "internal_dependencies": [
+        "universal_visual_os_agent.geometry.models"
+      ],
+      "line_count": 14,
+      "module_name": "universal_visual_os_agent.geometry.interfaces",
+      "package": "geometry",
+      "path": "src/universal_visual_os_agent/geometry/interfaces.py",
+      "primary_purpose": "Protocols for future OS-backed screen metrics providers.",
+      "public_classes": [
+        {
+          "kind": "protocol",
+          "name": "ScreenMetricsProvider"
+        }
+      ],
+      "public_functions": [],
+      "public_symbol_count": 1
+    },
+    {
+      "important_data_models": [
+        "NormalizedPoint",
+        "NormalizedBBox",
+        "ScreenMetrics",
+        "ScreenPoint",
+        "ScreenBBox",
+        "VirtualDesktopMetrics",
+        "ScreenMetricsQueryResult"
+      ],
+      "important_enums": [],
+      "important_protocols": [],
+      "internal_dependencies": [],
+      "line_count": 229,
+      "module_name": "universal_visual_os_agent.geometry.models",
+      "package": "geometry",
+      "path": "src/universal_visual_os_agent/geometry/models.py",
+      "primary_purpose": "Normalized geometry primitives.",
+      "public_classes": [
+        {
+          "kind": "dataclass",
+          "name": "NormalizedPoint"
+        },
+        {
+          "kind": "dataclass",
+          "name": "NormalizedBBox"
+        },
+        {
+          "kind": "dataclass",
+          "name": "ScreenMetrics"
+        },
+        {
+          "kind": "dataclass",
+          "name": "ScreenPoint"
+        },
+        {
+          "kind": "dataclass",
+          "name": "ScreenBBox"
+        },
+        {
+          "kind": "dataclass",
+          "name": "VirtualDesktopMetrics"
+        },
+        {
+          "kind": "dataclass",
+          "name": "ScreenMetricsQueryResult"
+        }
+      ],
+      "public_functions": [],
+      "public_symbol_count": 7
+    },
+    {
+      "important_data_models": [],
+      "important_enums": [],
+      "important_protocols": [
+        "CaptureProvider"
+      ],
+      "internal_dependencies": [
+        "universal_visual_os_agent.perception.models"
+      ],
+      "line_count": 14,
+      "module_name": "universal_visual_os_agent.perception.interfaces",
+      "package": "perception",
+      "path": "src/universal_visual_os_agent/perception/interfaces.py",
+      "primary_purpose": "Perception provider interfaces.",
+      "public_classes": [
+        {
+          "kind": "protocol",
+          "name": "CaptureProvider"
+        }
+      ],
+      "public_functions": [],
+      "public_symbol_count": 1
+    },
+    {
+      "important_data_models": [
+        "FrameImagePayload",
+        "CapturedFrame",
+        "CaptureResult"
+      ],
+      "important_enums": [
+        "FramePixelFormat"
+      ],
+      "important_protocols": [],
+      "internal_dependencies": [],
+      "line_count": 133,
+      "module_name": "universal_visual_os_agent.perception.models",
+      "package": "perception",
+      "path": "src/universal_visual_os_agent/perception/models.py",
+      "primary_purpose": "Perception model types.",
+      "public_classes": [
+        {
+          "kind": "enum",
+          "name": "FramePixelFormat"
+        },
+        {
+          "kind": "dataclass",
+          "name": "FrameImagePayload"
+        },
+        {
+          "kind": "dataclass",
+          "name": "CapturedFrame"
+        },
+        {
+          "kind": "dataclass",
+          "name": "CaptureResult"
+        }
+      ],
+      "public_functions": [],
+      "public_symbol_count": 4
+    },
+    {
+      "important_data_models": [],
+      "important_enums": [],
+      "important_protocols": [
+        "TaskRepository",
+        "CheckpointRepository",
+        "AuditEventRepository"
+      ],
+      "internal_dependencies": [
+        "universal_visual_os_agent.audit.models",
+        "universal_visual_os_agent.persistence.models"
+      ],
+      "line_count": 39,
+      "module_name": "universal_visual_os_agent.persistence.interfaces",
+      "package": "persistence",
+      "path": "src/universal_visual_os_agent/persistence/interfaces.py",
+      "primary_purpose": "Repository interfaces for SQLite-backed persistence.",
+      "public_classes": [
+        {
+          "kind": "protocol",
+          "name": "TaskRepository"
+        },
+        {
+          "kind": "protocol",
+          "name": "CheckpointRepository"
+        },
+        {
+          "kind": "protocol",
+          "name": "AuditEventRepository"
+        }
+      ],
+      "public_functions": [],
+      "public_symbol_count": 3
+    },
+    {
+      "important_data_models": [
+        "TaskRecord",
+        "CheckpointRecord"
+      ],
+      "important_enums": [],
+      "important_protocols": [],
+      "internal_dependencies": [],
+      "line_count": 29,
+      "module_name": "universal_visual_os_agent.persistence.models",
+      "package": "persistence",
+      "path": "src/universal_visual_os_agent/persistence/models.py",
+      "primary_purpose": "SQLite-oriented persistence models.",
+      "public_classes": [
+        {
+          "kind": "dataclass",
+          "name": "TaskRecord"
+        },
+        {
+          "kind": "dataclass",
+          "name": "CheckpointRecord"
+        }
+      ],
+      "public_functions": [],
+      "public_symbol_count": 2
+    },
+    {
+      "important_data_models": [],
+      "important_enums": [],
+      "important_protocols": [
+        "Planner",
+        "RecoveryPlanner"
+      ],
+      "internal_dependencies": [
+        "universal_visual_os_agent.planning.models",
+        "universal_visual_os_agent.recovery.models"
+      ],
+      "line_count": 23,
+      "module_name": "universal_visual_os_agent.planning.interfaces",
+      "package": "planning",
+      "path": "src/universal_visual_os_agent/planning/interfaces.py",
+      "primary_purpose": "Planner interfaces.",
+      "public_classes": [
+        {
+          "kind": "protocol",
+          "name": "Planner"
+        },
+        {
+          "kind": "protocol",
+          "name": "RecoveryPlanner"
+        }
+      ],
+      "public_functions": [],
+      "public_symbol_count": 2
+    },
+    {
+      "important_data_models": [
+        "PlannerDecision"
+      ],
+      "important_enums": [],
+      "important_protocols": [],
+      "internal_dependencies": [],
+      "line_count": 16,
+      "module_name": "universal_visual_os_agent.planning.models",
+      "package": "planning",
+      "path": "src/universal_visual_os_agent/planning/models.py",
+      "primary_purpose": "Planner model types.",
+      "public_classes": [
+        {
+          "kind": "dataclass",
+          "name": "PlannerDecision"
+        }
+      ],
+      "public_functions": [],
+      "public_symbol_count": 1
+    },
+    {
+      "important_data_models": [],
+      "important_enums": [],
+      "important_protocols": [
+        "ProtectedContextDetector",
+        "KillSwitch",
+        "PauseController",
+        "PolicyEngine"
+      ],
+      "internal_dependencies": [
+        "universal_visual_os_agent.actions.models",
+        "universal_visual_os_agent.policy.models"
+      ],
+      "line_count": 52,
+      "module_name": "universal_visual_os_agent.policy.interfaces",
+      "package": "policy",
+      "path": "src/universal_visual_os_agent/policy/interfaces.py",
+      "primary_purpose": "Policy engine and safety hook interfaces.",
+      "public_classes": [
+        {
+          "kind": "protocol",
+          "name": "ProtectedContextDetector"
+        },
+        {
+          "kind": "protocol",
+          "name": "KillSwitch"
+        },
+        {
+          "kind": "protocol",
+          "name": "PauseController"
+        },
+        {
+          "kind": "protocol",
+          "name": "PolicyEngine"
+        }
+      ],
+      "public_functions": [],
+      "public_symbol_count": 4
+    },
+    {
+      "important_data_models": [
+        "PolicyRule",
+        "PolicyRuleSet",
+        "ProtectedContextAssessment",
+        "KillSwitchState",
+        "PauseState",
+        "PolicyEvaluationContext",
+        "PolicyDecision"
+      ],
+      "important_enums": [
+        "PolicyVerdict",
+        "ProtectedContextStatus",
+        "PolicyContextCompleteness",
+        "PauseStatus"
+      ],
+      "important_protocols": [],
+      "internal_dependencies": [],
+      "line_count": 130,
+      "module_name": "universal_visual_os_agent.policy.models",
+      "package": "policy",
+      "path": "src/universal_visual_os_agent/policy/models.py",
+      "primary_purpose": "Policy and safety models for action gating.",
+      "public_classes": [
+        {
+          "kind": "enum",
+          "name": "PolicyVerdict"
+        },
+        {
+          "kind": "enum",
+          "name": "ProtectedContextStatus"
+        },
+        {
+          "kind": "enum",
+          "name": "PolicyContextCompleteness"
+        },
+        {
+          "kind": "enum",
+          "name": "PauseStatus"
+        },
+        {
+          "kind": "dataclass",
+          "name": "PolicyRule"
+        },
+        {
+          "kind": "dataclass",
+          "name": "PolicyRuleSet"
+        },
+        {
+          "kind": "dataclass",
+          "name": "ProtectedContextAssessment"
+        },
+        {
+          "kind": "dataclass",
+          "name": "KillSwitchState"
+        },
+        {
+          "kind": "dataclass",
+          "name": "PauseState"
+        },
+        {
+          "kind": "dataclass",
+          "name": "PolicyEvaluationContext"
+        },
+        {
+          "kind": "dataclass",
+          "name": "PolicyDecision"
+        }
+      ],
+      "public_functions": [],
+      "public_symbol_count": 11
+    },
+    {
+      "important_data_models": [],
+      "important_enums": [],
+      "important_protocols": [
+        "RecoverySnapshotLoader",
+        "StateReconciler"
+      ],
+      "internal_dependencies": [
+        "universal_visual_os_agent.recovery.models"
+      ],
+      "line_count": 26,
+      "module_name": "universal_visual_os_agent.recovery.interfaces",
+      "package": "recovery",
+      "path": "src/universal_visual_os_agent/recovery/interfaces.py",
+      "primary_purpose": "Recovery loading and reconciliation contracts.",
+      "public_classes": [
+        {
+          "kind": "protocol",
+          "name": "RecoverySnapshotLoader"
+        },
+        {
+          "kind": "protocol",
+          "name": "StateReconciler"
+        }
+      ],
+      "public_functions": [],
+      "public_symbol_count": 2
+    },
+    {
+      "important_data_models": [
+        "RecoverySnapshot",
+        "ReconciliationResult"
+      ],
+      "important_enums": [],
+      "important_protocols": [],
+      "internal_dependencies": [
+        "universal_visual_os_agent.persistence.models"
+      ],
+      "line_count": 45,
+      "module_name": "universal_visual_os_agent.recovery.models",
+      "package": "recovery",
+      "path": "src/universal_visual_os_agent/recovery/models.py",
+      "primary_purpose": "Recovery model types.",
+      "public_classes": [
+        {
+          "kind": "dataclass",
+          "name": "RecoverySnapshot"
+        },
+        {
+          "kind": "dataclass",
+          "name": "ReconciliationResult"
+        }
+      ],
+      "public_functions": [],
+      "public_symbol_count": 2
+    },
+    {
+      "important_data_models": [
+        "DeterministicReplaySettings",
+        "ReplayEntry",
+        "ReplaySession",
+        "ReplayHarnessResult"
+      ],
+      "important_enums": [],
+      "important_protocols": [],
+      "internal_dependencies": [
+        "universal_visual_os_agent.app.models",
+        "universal_visual_os_agent.perception.models",
+        "universal_visual_os_agent.semantics.state"
+      ],
+      "line_count": 64,
+      "module_name": "universal_visual_os_agent.replay.models",
+      "package": "replay",
+      "path": "src/universal_visual_os_agent/replay/models.py",
+      "primary_purpose": "Replay session and deterministic-mode models.",
+      "public_classes": [
+        {
+          "kind": "dataclass",
+          "name": "DeterministicReplaySettings"
+        },
+        {
+          "kind": "dataclass",
+          "name": "ReplayEntry"
+        },
+        {
+          "kind": "dataclass",
+          "name": "ReplaySession"
+        },
+        {
+          "kind": "dataclass",
+          "name": "ReplayHarnessResult"
+        }
+      ],
+      "public_functions": [],
+      "public_symbol_count": 4
+    },
+    {
+      "important_data_models": [],
+      "important_enums": [],
+      "important_protocols": [
+        "ScenarioDefinitionBuilder",
+        "ScenarioRunner",
+        "ScenarioActionRunner",
+        "ScenarioStateMachine"
+      ],
+      "internal_dependencies": [
+        "universal_visual_os_agent.config.models",
+        "universal_visual_os_agent.geometry.models",
+        "universal_visual_os_agent.policy.models",
+        "universal_visual_os_agent.scenarios.models",
+        "universal_visual_os_agent.scenarios.state_machine",
+        "universal_visual_os_agent.semantics.state"
+      ],
+      "line_count": 90,
+      "module_name": "universal_visual_os_agent.scenarios.interfaces",
+      "package": "scenarios",
+      "path": "src/universal_visual_os_agent/scenarios/interfaces.py",
+      "primary_purpose": "Scenario-definition and scenario-flow interfaces.",
+      "public_classes": [
+        {
+          "kind": "protocol",
+          "name": "ScenarioDefinitionBuilder"
+        },
+        {
+          "kind": "protocol",
+          "name": "ScenarioRunner"
+        },
+        {
+          "kind": "protocol",
+          "name": "ScenarioActionRunner"
+        },
+        {
+          "kind": "protocol",
+          "name": "ScenarioStateMachine"
+        }
+      ],
+      "public_functions": [],
+      "public_symbol_count": 4
+    },
+    {
+      "important_data_models": [
+        "SemanticNode",
+        "SemanticLayoutTree"
+      ],
+      "important_enums": [],
+      "important_protocols": [],
+      "internal_dependencies": [
+        "universal_visual_os_agent.geometry.models"
+      ],
+      "line_count": 61,
+      "module_name": "universal_visual_os_agent.semantics.layout",
+      "package": "semantics",
+      "path": "src/universal_visual_os_agent/semantics/layout.py",
+      "primary_purpose": "Semantic layout tree models.",
+      "public_classes": [
+        {
+          "kind": "dataclass",
+          "name": "SemanticNode"
+        },
+        {
+          "kind": "dataclass",
+          "name": "SemanticLayoutTree"
+        }
+      ],
+      "public_functions": [],
+      "public_symbol_count": 2
+    },
+    {
+      "important_data_models": [],
+      "important_enums": [],
+      "important_protocols": [],
+      "internal_dependencies": [
+        "universal_visual_os_agent.semantics.building",
+        "universal_visual_os_agent.semantics.candidate_exposure",
+        "universal_visual_os_agent.semantics.candidate_generation",
+        "universal_visual_os_agent.semantics.candidate_scoring",
+        "universal_visual_os_agent.semantics.interfaces",
+        "universal_visual_os_agent.semantics.layout",
+        "universal_visual_os_agent.semantics.layout_region_analysis",
+        "universal_visual_os_agent.semantics.ocr",
+        "universal_visual_os_agent.semantics.ocr_rapidocr",
+        "universal_visual_os_agent.semantics.ontology",
+        "universal_visual_os_agent.semantics.preparation",
+        "universal_visual_os_agent.semantics.semantic_delta",
+        "universal_visual_os_agent.semantics.semantic_layout_enrichment",
+        "universal_visual_os_agent.semantics.state"
+      ],
+      "line_count": 148,
+      "module_name": "universal_visual_os_agent.semantics.models",
+      "package": "semantics",
+      "path": "src/universal_visual_os_agent/semantics/models.py",
+      "primary_purpose": "Compatibility exports for semantic models.",
+      "public_classes": [],
+      "public_functions": [],
+      "public_symbol_count": 0
+    },
+    {
+      "important_data_models": [
+        "CandidateProvenanceRecord"
+      ],
+      "important_enums": [
+        "SemanticCandidateSourceType",
+        "CandidateSelectionRiskLevel"
+      ],
+      "important_protocols": [
+        "CandidateOntologyCarrier"
+      ],
+      "internal_dependencies": [],
+      "line_count": 118,
+      "module_name": "universal_visual_os_agent.semantics.ontology",
+      "package": "semantics",
+      "path": "src/universal_visual_os_agent/semantics/ontology.py",
+      "primary_purpose": "Stable candidate-source ontology models for hybrid semantic perception.",
+      "public_classes": [
+        {
+          "kind": "enum",
+          "name": "SemanticCandidateSourceType"
+        },
+        {
+          "kind": "enum",
+          "name": "CandidateSelectionRiskLevel"
+        },
+        {
+          "kind": "dataclass",
+          "name": "CandidateProvenanceRecord"
+        },
+        {
+          "kind": "protocol",
+          "name": "CandidateOntologyCarrier"
+        }
+      ],
+      "public_functions": [
+        "normalize_source_of_truth_priority",
+        "normalize_provenance",
+        "candidate_ontology_completeness_status",
+        "provenance_source_types"
+      ],
+      "public_symbol_count": 8
+    }
+  ],
+  "schema_version": "symbol_map_v1",
+  "scope": "ai_safe_context.code_file_paths",
+  "source_boundary": "docs/CONTEXT_BOUNDARIES.json",
+  "summary": {
+    "class_kind_counts": {
+      "dataclass": 44,
+      "enum": 12,
+      "protocol": 36
+    },
+    "largest_modules": [
+      {
+        "line_count": 229,
+        "path": "src/universal_visual_os_agent/geometry/models.py"
+      },
+      {
+        "line_count": 148,
+        "path": "src/universal_visual_os_agent/semantics/models.py"
+      },
+      {
+        "line_count": 141,
+        "path": "src/universal_visual_os_agent/config/models.py"
+      },
+      {
+        "line_count": 133,
+        "path": "src/universal_visual_os_agent/actions/models.py"
+      },
+      {
+        "line_count": 133,
+        "path": "src/universal_visual_os_agent/perception/models.py"
+      },
+      {
+        "line_count": 130,
+        "path": "src/universal_visual_os_agent/policy/models.py"
+      },
+      {
+        "line_count": 129,
+        "path": "src/universal_visual_os_agent/ai_architecture/interfaces.py"
+      },
+      {
+        "line_count": 118,
+        "path": "src/universal_visual_os_agent/semantics/ontology.py"
+      }
+    ],
+    "module_count": 26,
+    "modules_without_public_symbols": [
+      "src/universal_visual_os_agent/semantics/models.py"
+    ],
+    "package_counts": {
+      "actions": 1,
+      "ai_architecture": 1,
+      "ai_boundary": 1,
+      "app": 2,
+      "audit": 2,
+      "config": 1,
+      "core": 1,
+      "geometry": 2,
+      "perception": 2,
+      "persistence": 2,
+      "planning": 2,
+      "policy": 2,
+      "recovery": 2,
+      "replay": 1,
+      "scenarios": 1,
+      "semantics": 3
+    }
+  }
+}
