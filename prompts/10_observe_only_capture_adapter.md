@@ -380,3 +380,99 @@ Important:
 - If DXcam integration succeeds, use it as the primary full-desktop backend.
 - If DXcam cannot be added safely, say so clearly and stop rather than faking completeness.
 - Keep the implementation tightly scoped to full-desktop capture backend integration only.
+
+------dxcam güncellemesi-----
+
+Read `AGENTS.md`, `docs/SPEC.md`, and `docs/EXECPLAN.md`.
+
+Implement a focused diagnostic-only pass for the existing DXcam full-desktop capture backend.
+
+Scope:
+- do not add live input
+- do not add action execution
+- do not add new capture backends
+- do not expand planning, semantics, or policy
+- work only on diagnosing why the current DXcam backend returns COMError / access denied in this environment
+
+Goals:
+- add a small manual local diagnostic utility for DXcam
+- report structured details about:
+  - process/session context
+  - whether the process appears interactive
+  - current desktop/session accessibility
+  - backend initialization stage
+  - exact failure stage and HRESULT
+  - output selection details
+  - monitor/output metadata
+- keep everything strictly read-only and diagnostic-only
+- do not hide environment-specific failures
+
+Requirements:
+- Python 3.14 style
+- type hints where appropriate
+- small, isolated implementation
+- no new third-party dependency
+- no live input
+- no action execution
+
+Tests:
+- add focused tests for diagnostic result shape and safe failure behavior
+- do not over-expand scope
+
+Validation requirements:
+- run the pre-delivery self-debug loop
+- run compile/import/test validation
+- clearly separate:
+  - actually executed checks
+  - environment-specific failures
+  - static reasoning only
+
+Important:
+- the utility must be intended for manual local execution by the user in an interactive desktop session
+- if DXcam initialization fails, report the exact HRESULT and stage clearly
+- keep the implementation tightly scoped to diagnostics only
+
+-------ful desktop utility ------
+
+Read `AGENTS.md`, `docs/SPEC.md`, and `docs/EXECPLAN.md`.
+
+Implement a small manual full-desktop DXcam capture diagnostic utility only.
+
+Scope:
+- do not add live input
+- do not add action execution
+- do not expand planning, semantics, or policy
+- work only on a manual local diagnostic entry point for the existing DXcam full-desktop observe-only capture path
+
+Goals:
+- add a simple local diagnostic script or module that can be run manually by the user
+- check and print:
+  - whether the DXcam backend initializes successfully
+  - whether a real full-desktop frame can be acquired
+  - frame width/height and metadata if successful
+  - structured success/failure details if unsuccessful
+- optionally save a diagnostic image only if capture succeeds
+- keep everything strictly read-only and observe-only
+
+Requirements:
+- Python 3.14 style
+- type hints where appropriate
+- small, isolated implementation
+- no third-party runtime dependencies beyond the already approved DXcam
+- no live input
+- no action execution
+
+Tests:
+- add focused tests for diagnostic result shape and safe failure behavior
+- do not over-expand scope
+
+Validation requirements:
+- run the pre-delivery self-debug loop
+- run compile/import/test validation
+- clearly separate actually executed checks from static reasoning
+
+Important:
+- the utility must be intended for manual local execution by the user in an interactive desktop session
+- if real frame capture succeeds, report that clearly
+- if image saving is supported, save only on success
+- keep the implementation tightly scoped to diagnostics only
