@@ -6,7 +6,11 @@ from typing import Protocol
 
 from universal_visual_os_agent.perception.models import CaptureResult
 from universal_visual_os_agent.semantics.building import SemanticStateBuildResult
-from universal_visual_os_agent.semantics.ocr import TextExtractionResult
+from universal_visual_os_agent.semantics.ocr import (
+    TextExtractionRequest,
+    TextExtractionResponse,
+    TextExtractionResult,
+)
 from universal_visual_os_agent.semantics.preparation import (
     SemanticExtractionPreparationResult,
 )
@@ -35,3 +39,10 @@ class TextExtractionAdapter(Protocol):
         state_result: SemanticStateBuildResult,
     ) -> TextExtractionResult:
         """Return a structured text extraction scaffolding result."""
+
+
+class TextExtractionBackend(Protocol):
+    """Future OCR backend contract for observe-only text extraction requests."""
+
+    def run(self, request: TextExtractionRequest) -> TextExtractionResponse:
+        """Return a structured OCR/text extraction response."""

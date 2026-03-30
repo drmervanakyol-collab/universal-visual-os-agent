@@ -71,6 +71,34 @@ class SemanticTextRegion:
 
 
 @dataclass(slots=True, frozen=True, kw_only=True)
+class SemanticTextBlock:
+    """A non-actionable OCR/text block derived from a text region."""
+
+    text_block_id: str
+    region_id: str
+    label: str
+    bounds: NormalizedBBox
+    role: str = "text_block"
+    visible: bool = True
+    enabled: bool = False
+    extracted_text: str | None = None
+    confidence: float | None = None
+    metadata: Mapping[str, object] = field(default_factory=dict)
+
+    def __post_init__(self) -> None:
+        if not self.text_block_id:
+            raise ValueError("text_block_id must not be empty.")
+        if not self.region_id:
+            raise ValueError("region_id must not be empty.")
+        if not self.label:
+            raise ValueError("label must not be empty.")
+        if not self.role:
+            raise ValueError("role must not be empty.")
+        if self.confidence is not None and not 0.0 <= self.confidence <= 1.0:
+            raise ValueError("confidence must be between 0.0 and 1.0 inclusive.")
+
+
+@dataclass(slots=True, frozen=True, kw_only=True)
 class SemanticCandidate:
     """Target candidate derived from semantic understanding."""
 
@@ -107,6 +135,7 @@ class SemanticStateSnapshot:
     layout_tree: SemanticLayoutTree | None = None
     region_blocks: tuple[SemanticRegionBlock, ...] = ()
     text_regions: tuple[SemanticTextRegion, ...] = ()
+    text_blocks: tuple[SemanticTextBlock, ...] = ()
     candidates: tuple[SemanticCandidate, ...] = ()
     snapshot_id: str = field(default_factory=lambda: str(uuid4()))
     observed_at: datetime = field(default_factory=lambda: datetime.now(UTC))
@@ -119,6 +148,9 @@ class SemanticStateSnapshot:
         text_region_ids = {region.region_id for region in self.text_regions}
         if len(text_region_ids) != len(self.text_regions):
             raise ValueError("text region identifiers must be unique within a snapshot.")
+        text_block_ids = {block.text_block_id for block in self.text_blocks}
+        if len(text_block_ids) != len(self.text_blocks):
+            raise ValueError("text block identifiers must be unique within a snapshot.")
         candidate_ids = {candidate.candidate_id for candidate in self.candidates}
         if len(candidate_ids) != len(self.candidates):
             raise ValueError("candidate identifiers must be unique within a snapshot.")

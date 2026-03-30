@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
-from datetime import datetime
 from dataclasses import dataclass, field, replace
+from datetime import datetime
+from enum import StrEnum
 from typing import Mapping, Self
 
 from universal_visual_os_agent.geometry import NormalizedBBox
@@ -15,6 +16,7 @@ from universal_visual_os_agent.semantics.preparation import (
 )
 from universal_visual_os_agent.semantics.state import (
     SemanticStateSnapshot,
+    SemanticTextBlock,
     SemanticTextRegion,
     SemanticTextStatus,
 )
@@ -69,6 +71,35 @@ class TextExtractionRequest:
             raise ValueError("regions must not be empty.")
 
 
+class TextExtractionResponseStatus(StrEnum):
+    """Status values for future OCR backend responses."""
+
+    pending = "pending"
+    completed = "completed"
+    failed = "failed"
+
+
+@dataclass(slots=True, frozen=True, kw_only=True)
+class TextExtractionResponse:
+    """Structured OCR/text extraction response scaffold for future backends."""
+
+    status: TextExtractionResponseStatus
+    backend_name: str | None = None
+    text_regions: tuple[SemanticTextRegion, ...] = ()
+    text_blocks: tuple[SemanticTextBlock, ...] = ()
+    error_code: str | None = None
+    error_message: str | None = None
+    details: Mapping[str, object] = field(default_factory=dict)
+
+    def __post_init__(self) -> None:
+        if self.status is TextExtractionResponseStatus.failed and self.error_code is None:
+            raise ValueError("Failed text extraction responses must include error_code.")
+        if self.status is not TextExtractionResponseStatus.failed and self.error_code is not None:
+            raise ValueError("Non-failed text extraction responses must not include error_code.")
+        if self.error_message is not None and self.error_code is None:
+            raise ValueError("error_message requires error_code.")
+
+
 @dataclass(slots=True, frozen=True, kw_only=True)
 class TextExtractionResult:
     """Structured result for observe-only OCR/text extraction scaffolding."""
@@ -76,7 +107,9 @@ class TextExtractionResult:
     adapter_name: str
     success: bool
     request: TextExtractionRequest | None = None
+    response: TextExtractionResponse | None = None
     text_regions: tuple[SemanticTextRegion, ...] = ()
+    text_blocks: tuple[SemanticTextBlock, ...] = ()
     enriched_snapshot: SemanticStateSnapshot | None = None
     error_code: str | None = None
     error_message: str | None = None
@@ -85,8 +118,8 @@ class TextExtractionResult:
     def __post_init__(self) -> None:
         if not self.adapter_name:
             raise ValueError("adapter_name must not be empty.")
-        if self.success and self.request is None:
-            raise ValueError("Successful extraction results must include request.")
+        if self.success and (self.request is None or self.response is None):
+            raise ValueError("Successful extraction results must include request and response.")
         if not self.success and self.error_code is None:
             raise ValueError("Failed extraction results must include error_code.")
         if self.success and (self.error_code is not None or self.error_message is not None):
@@ -100,7 +133,9 @@ class TextExtractionResult:
         *,
         adapter_name: str,
         request: TextExtractionRequest,
+        response: TextExtractionResponse,
         text_regions: tuple[SemanticTextRegion, ...],
+        text_blocks: tuple[SemanticTextBlock, ...],
         enriched_snapshot: SemanticStateSnapshot,
         details: Mapping[str, object] | None = None,
     ) -> Self:
@@ -110,7 +145,9 @@ class TextExtractionResult:
             adapter_name=adapter_name,
             success=True,
             request=request,
+            response=response,
             text_regions=text_regions,
+            text_blocks=text_blocks,
             enriched_snapshot=enriched_snapshot,
             details={} if details is None else details,
         )
@@ -203,14 +240,27 @@ class PreparedSemanticTextExtractionAdapter:
         try:
             request = self._build_request(extraction_input, snapshot)
             text_regions = self._build_text_regions(request)
+            text_blocks = self._build_text_blocks(text_regions)
+            response = TextExtractionResponse(
+                status=TextExtractionResponseStatus.pending,
+                text_regions=text_regions,
+                text_blocks=text_blocks,
+                details={
+                    "observe_only": True,
+                    "ocr_backend_name": None,
+                    "placeholder_response": True,
+                },
+            )
             enriched_snapshot = replace(
                 snapshot,
                 text_regions=text_regions,
+                text_blocks=text_blocks,
                 metadata={
                     **dict(snapshot.metadata),
                     "text_extraction_adapter_name": self.adapter_name,
                     "text_extraction_scaffold": True,
                     "text_region_ids": tuple(region.region_id for region in text_regions),
+                    "text_block_ids": tuple(block.text_block_id for block in text_blocks),
                 },
             )
         except Exception as exc:  # noqa: BLE001 - adapter must remain failure-safe
@@ -227,11 +277,14 @@ class PreparedSemanticTextExtractionAdapter:
         return TextExtractionResult.ok(
             adapter_name=self.adapter_name,
             request=request,
+            response=response,
             text_regions=text_regions,
+            text_blocks=text_blocks,
             enriched_snapshot=enriched_snapshot,
             details={
                 "frame_id": extraction_input.frame_id,
                 "region_count": len(text_regions),
+                "text_block_count": len(text_blocks),
                 "snapshot_id": enriched_snapshot.snapshot_id,
             },
         )
@@ -300,4 +353,28 @@ class PreparedSemanticTextExtractionAdapter:
                 },
             )
             for region in request.regions
+        )
+
+    def _build_text_blocks(
+        self,
+        text_regions: tuple[SemanticTextRegion, ...],
+    ) -> tuple[SemanticTextBlock, ...]:
+        return tuple(
+            SemanticTextBlock(
+                text_block_id=f"{region.region_id}:block",
+                region_id=region.region_id,
+                label=f"{region.label} Block",
+                bounds=region.bounds,
+                enabled=False,
+                extracted_text=None,
+                confidence=None,
+                metadata={
+                    **dict(region.metadata),
+                    "text_source": "placeholder",
+                    "ocr_backend_name": None,
+                    "observe_only": True,
+                    "analysis_only": True,
+                },
+            )
+            for region in text_regions
         )

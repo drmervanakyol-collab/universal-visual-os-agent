@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 
+import pytest
+
 from universal_visual_os_agent.integrations.windows import WindowsCaptureTarget
 from universal_visual_os_agent.perception import (
     CaptureResult,
@@ -15,8 +17,11 @@ from universal_visual_os_agent.semantics import (
     SemanticExtractionPreparationResult,
     SemanticStateBuildResult,
     SemanticStateSnapshot,
+    SemanticTextBlock,
     SemanticTextRegion,
     SemanticTextStatus,
+    TextExtractionResponse,
+    TextExtractionResponseStatus,
 )
 
 
@@ -102,17 +107,28 @@ def test_successful_semantic_pipeline_builds_text_extraction_placeholders() -> N
 
     assert result.success is True
     assert result.request is not None
+    assert result.response is not None
     assert len(result.request.regions) == 4
     assert len(result.text_regions) == 4
+    assert len(result.text_blocks) == 4
     assert all(isinstance(region, SemanticTextRegion) for region in result.text_regions)
+    assert all(isinstance(block, SemanticTextBlock) for block in result.text_blocks)
     assert all(region.status is SemanticTextStatus.pending for region in result.text_regions)
     assert all(region.extracted_text is None for region in result.text_regions)
     assert all(region.enabled is False for region in result.text_regions)
+    assert all(block.extracted_text is None for block in result.text_blocks)
+    assert all(block.enabled is False for block in result.text_blocks)
+    assert result.response.status is TextExtractionResponseStatus.pending
+    assert result.response.backend_name is None
     assert result.enriched_snapshot is not None
     assert len(result.enriched_snapshot.text_regions) == 4
+    assert len(result.enriched_snapshot.text_blocks) == 4
     assert result.enriched_snapshot.metadata["text_extraction_scaffold"] is True
     assert result.enriched_snapshot.metadata["text_region_ids"] == tuple(
         region.region_id for region in result.text_regions
+    )
+    assert result.enriched_snapshot.metadata["text_block_ids"] == tuple(
+        block.text_block_id for block in result.text_blocks
     )
     assert all(candidate.actionable is False for candidate in result.enriched_snapshot.candidates)
 
@@ -194,3 +210,8 @@ def test_text_extraction_adapter_does_not_propagate_unhandled_exceptions() -> No
     assert result.error_code == "text_extraction_exception"
     assert result.error_message == "ocr adapter exploded"
     assert result.details["exception_type"] == "RuntimeError"
+
+
+def test_text_extraction_response_requires_error_code_for_failed_status() -> None:
+    with pytest.raises(ValueError, match="Failed text extraction responses must include error_code"):
+        TextExtractionResponse(status=TextExtractionResponseStatus.failed)
