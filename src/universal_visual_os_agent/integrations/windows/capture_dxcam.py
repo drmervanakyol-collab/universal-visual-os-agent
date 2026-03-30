@@ -20,6 +20,12 @@ from universal_visual_os_agent.perception import FramePixelFormat
 _DESKTOP_READOBJECTS = 0x0001
 _SM_REMOTESESSION = 0x1000
 _E_ACCESSDENIED = -2147024891
+_DXCAM_DEVICE_INDEX = 0
+_DXCAM_OUTPUT_INDEX: int | None = None
+_DXCAM_REGION: tuple[int, int, int, int] | None = None
+_DXCAM_OUTPUT_COLOR = "BGRA"
+_DXCAM_MAX_BUFFER_LEN = 2
+_DXCAM_PROCESSOR_BACKEND = "numpy"
 
 
 class _DxcamModule(Protocol):
@@ -109,15 +115,7 @@ class WindowsDxcamCaptureBackend:
         dxcam_backend = probe["dxcam_backend_used"]
         camera = None
         try:
-            camera = dxcam_module.create(
-                device_idx=0,
-                output_idx=None,
-                region=None,
-                output_color="BGRA",
-                max_buffer_len=2,
-                backend=dxcam_backend,
-                processor_backend="numpy",
-            )
+            camera = self._create_camera(dxcam_module=dxcam_module, dxcam_backend=dxcam_backend)
             frame = self._grab_frame(camera)
             return self._frame_to_raw_capture(
                 frame=frame,
@@ -214,15 +212,7 @@ class WindowsDxcamCaptureBackend:
         for dxcam_backend in self._dxcam_backend_order():
             camera = None
             try:
-                camera = dxcam_module.create(
-                    device_idx=0,
-                    output_idx=None,
-                    region=None,
-                    output_color="BGRA",
-                    max_buffer_len=2,
-                    backend=dxcam_backend,
-                    processor_backend="numpy",
-                )
+                camera = self._create_camera(dxcam_module=dxcam_module, dxcam_backend=dxcam_backend)
                 width = int(getattr(camera, "width"))
                 height = int(getattr(camera, "height"))
                 if not self._requested_bounds_match_primary_output(bounds=bounds, width=width, height=height):
@@ -262,6 +252,7 @@ class WindowsDxcamCaptureBackend:
                     "camera_height_px": height,
                     "available": True,
                     "reason": "DXcam is available for the current request.",
+                    **self._capture_request_details(bounds),
                     **environment_details,
                     **dxcam_details,
                 }
@@ -294,6 +285,7 @@ class WindowsDxcamCaptureBackend:
             "bounds_height_px": bounds.height_px,
             "available": False,
             "reason": _reason_from_attempts(attempts),
+            **self._capture_request_details(bounds),
             **environment_details,
             **dxcam_details,
         }
@@ -378,6 +370,32 @@ class WindowsDxcamCaptureBackend:
 
     def _requested_bounds_match_primary_output(self, *, bounds: ScreenBBox, width: int, height: int) -> bool:
         return bounds.left_px == 0 and bounds.top_px == 0 and bounds.width_px == width and bounds.height_px == height
+
+    def _capture_request_details(self, bounds: ScreenBBox) -> dict[str, object]:
+        return {
+            "requested_device_idx": _DXCAM_DEVICE_INDEX,
+            "requested_output_idx": _DXCAM_OUTPUT_INDEX,
+            "requested_region": _DXCAM_REGION,
+            "requested_output_color": _DXCAM_OUTPUT_COLOR,
+            "requested_processor_backend": _DXCAM_PROCESSOR_BACKEND,
+            "requested_max_buffer_len": _DXCAM_MAX_BUFFER_LEN,
+            "primary_output_layout_required": True,
+            "requested_layout_origin_x_px": bounds.left_px,
+            "requested_layout_origin_y_px": bounds.top_px,
+            "requested_layout_width_px": bounds.width_px,
+            "requested_layout_height_px": bounds.height_px,
+        }
+
+    def _create_camera(self, *, dxcam_module: _DxcamModule, dxcam_backend: str) -> object:
+        return dxcam_module.create(
+            device_idx=_DXCAM_DEVICE_INDEX,
+            output_idx=_DXCAM_OUTPUT_INDEX,
+            region=_DXCAM_REGION,
+            output_color=_DXCAM_OUTPUT_COLOR,
+            max_buffer_len=_DXCAM_MAX_BUFFER_LEN,
+            backend=dxcam_backend,
+            processor_backend=_DXCAM_PROCESSOR_BACKEND,
+        )
 
     def _capture_environment_details(self) -> dict[str, object]:
         details: dict[str, object] = {
