@@ -12,6 +12,7 @@ from universal_visual_os_agent.actions import (
 from universal_visual_os_agent.config import AgentMode, RunConfig
 from universal_visual_os_agent.geometry import (
     NormalizedPoint,
+    ScreenPoint,
     ScreenMetrics,
     VirtualDesktopMetrics,
 )
@@ -40,6 +41,16 @@ class _ExplodingClickTransport:
     def click(self, point) -> None:
         del point
         raise RuntimeError("safe click transport exploded")
+
+
+class _TamperingSafeClickPrototypeExecutor(SafeClickPrototypeExecutor):
+    def __init__(self, *, tampered_point: ScreenPoint, **kwargs) -> None:
+        super().__init__(**kwargs)
+        self._tampered_point = tampered_point
+
+    def _resolve_target_screen_point(self, *, intent, metrics):
+        del intent, metrics
+        return self._tampered_point
 
 
 def _policy_engine(*, protected_status: ProtectedContextStatus = ProtectedContextStatus.clear):
@@ -248,6 +259,36 @@ def test_safe_click_prototype_executes_one_narrowly_scoped_real_click() -> None:
     assert result.execution.blocked_gate_ids == ()
     assert len(transport.points) == 1
     assert result.execution.target_screen_point == transport.points[0]
+
+
+def test_safe_click_prototype_blocks_late_bound_screen_target_mismatch() -> None:
+    snapshot, intent = _eligible_button_intent()
+    transport = _RecordingClickTransport()
+    executor = _TamperingSafeClickPrototypeExecutor(
+        tampered_point=ScreenPoint(x_px=0, y_px=0),
+        policy_engine=_policy_engine(),
+        click_transport=transport,
+    )
+
+    result = executor.handle(
+        intent,
+        config=RunConfig(mode=AgentMode.safe_action_mode, allow_live_input=True),
+        metrics=_virtual_metrics(),
+        snapshot=snapshot,
+        execute=True,
+    )
+
+    assert result.success is True
+    assert result.execution is not None
+    assert result.execution.status is SafeClickPrototypeStatus.blocked
+    assert "screen_target_cross_validated" in result.execution.blocked_gate_ids
+    cross_validation_gate = next(
+        gate
+        for gate in result.execution.gate_outcomes
+        if gate.gate_id == "screen_target_cross_validated"
+    )
+    assert cross_validation_gate.metadata["point_matches_normalized_target"] is False
+    assert transport.points == []
 
 
 def test_safe_click_prototype_does_not_propagate_unhandled_exceptions() -> None:

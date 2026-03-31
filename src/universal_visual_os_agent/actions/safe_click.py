@@ -208,7 +208,7 @@ class SafeClickPrototypeExecutor:
                 )
 
             dry_run_evaluation = dry_run_result.evaluation
-            target_screen_point = _target_screen_point(intent=intent, metrics=metrics)
+            target_screen_point = self._resolve_target_screen_point(intent=intent, metrics=metrics)
             policy_decision = None
             real_click_mode_enabled = _real_click_mode_enabled(config)
             if real_click_mode_enabled:
@@ -227,6 +227,7 @@ class SafeClickPrototypeExecutor:
                 dry_run_evaluation=dry_run_evaluation,
                 target_screen_point=target_screen_point,
                 policy_decision=policy_decision,
+                metrics=metrics,
                 snapshot=snapshot,
                 execute=execute,
             )
@@ -375,6 +376,7 @@ class SafeClickPrototypeExecutor:
         dry_run_evaluation: DryRunActionEvaluation,
         target_screen_point: ScreenPoint | None,
         policy_decision: PolicyDecision | None,
+        metrics: VirtualDesktopMetrics | None,
         snapshot: SemanticStateSnapshot | None,
         execute: bool,
     ) -> tuple[SafeClickGateOutcome, ...]:
@@ -384,6 +386,7 @@ class SafeClickPrototypeExecutor:
             target_screen_point=target_screen_point,
             dry_run_evaluation=dry_run_evaluation,
             policy_decision=policy_decision,
+            metrics=metrics,
             snapshot=snapshot,
             execute=execute,
             click_transport_available=self._click_transport is not None,
@@ -404,6 +407,16 @@ class SafeClickPrototypeExecutor:
             )
             for outcome in boundary_result.assessment.check_outcomes
         )
+
+    def _resolve_target_screen_point(
+        self,
+        *,
+        intent: ActionIntent,
+        metrics: VirtualDesktopMetrics | None,
+    ) -> ScreenPoint | None:
+        """Late-bind the click point so the final boundary can cross-check it."""
+
+        return _target_screen_point(intent=intent, metrics=metrics)
 
 
 def _gate_outcome(

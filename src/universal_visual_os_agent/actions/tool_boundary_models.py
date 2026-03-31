@@ -46,6 +46,7 @@ class ActionToolBoundaryBlockCode(StrEnum):
     dry_run_not_accepted = "dry_run_not_accepted"
     policy_denied = "policy_denied"
     missing_screen_target = "missing_screen_target"
+    screen_target_cross_validation_failed = "screen_target_cross_validation_failed"
     click_transport_unavailable = "click_transport_unavailable"
 
 

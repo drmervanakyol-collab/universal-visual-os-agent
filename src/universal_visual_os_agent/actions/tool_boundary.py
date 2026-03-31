@@ -10,7 +10,18 @@ from universal_visual_os_agent.ai_boundary.models import (
 )
 from universal_visual_os_agent.config.modes import AgentMode
 from universal_visual_os_agent.config.models import RunConfig
-from universal_visual_os_agent.geometry.models import NormalizedBBox, NormalizedPoint, ScreenPoint
+from universal_visual_os_agent.geometry.models import (
+    NormalizedBBox,
+    NormalizedPoint,
+    ScreenBBox,
+    ScreenMetrics,
+    ScreenPoint,
+    VirtualDesktopMetrics,
+)
+from universal_visual_os_agent.geometry.transforms import (
+    bbox_normalized_to_screen,
+    normalized_to_screen,
+)
 from universal_visual_os_agent.policy.models import PolicyDecision, PolicyVerdict
 from universal_visual_os_agent.semantics.state import SemanticCandidate, SemanticStateSnapshot
 
@@ -152,6 +163,7 @@ class ObserveOnlyActionToolBoundaryGuard:
         target_screen_point: ScreenPoint | None,
         dry_run_evaluation: DryRunActionEvaluation,
         policy_decision: PolicyDecision | None,
+        metrics: VirtualDesktopMetrics | None = None,
         snapshot: SemanticStateSnapshot | None = None,
         execute: bool = False,
         click_transport_available: bool = False,
@@ -163,6 +175,7 @@ class ObserveOnlyActionToolBoundaryGuard:
                 target_screen_point=target_screen_point,
                 dry_run_evaluation=dry_run_evaluation,
                 policy_decision=policy_decision,
+                metrics=metrics,
                 snapshot=snapshot,
                 execute=execute,
                 click_transport_available=click_transport_available,
@@ -259,6 +272,7 @@ class ObserveOnlyActionToolBoundaryGuard:
         target_screen_point: ScreenPoint | None,
         dry_run_evaluation: DryRunActionEvaluation,
         policy_decision: PolicyDecision | None,
+        metrics: VirtualDesktopMetrics | None,
         snapshot: SemanticStateSnapshot | None,
         execute: bool,
         click_transport_available: bool,
@@ -280,124 +294,219 @@ class ObserveOnlyActionToolBoundaryGuard:
         policy_allowed = (
             policy_decision is not None and policy_decision.verdict is PolicyVerdict.allow
         )
-
-        outcomes = (
-            *self._common_intent_outcomes(intent, snapshot=snapshot),
-            _check(
-                check_id="real_click_mode_enabled",
-                summary="Real click mode requires safe_action_mode plus allow_live_input=True.",
-                condition=real_click_mode_enabled,
-                blocked_reason="RunConfig did not explicitly enable the real click prototype.",
-                satisfied_reason="Real click mode is explicitly enabled.",
-                block_code=ActionToolBoundaryBlockCode.real_click_mode_disabled,
-                metadata={"mode": config.mode.value, "allow_live_input": config.allow_live_input},
+        snapshot_candidate = _lookup_snapshot_candidate(snapshot, intent.candidate_id)
+        common_outcomes = self._common_intent_outcomes(intent, snapshot=snapshot)
+        blocked_common_outcome = next(
+            (
+                outcome
+                for outcome in common_outcomes
+                if outcome.status is ActionRequirementStatus.blocked
             ),
-            _check(
-                check_id="explicit_candidate_allowlist",
-                summary="Only top-ranked button-like candidates are explicitly eligible.",
-                condition=eligible_class and eligible_rank,
-                blocked_reason="Candidate did not match the explicit prototype allowlist.",
-                satisfied_reason="Candidate matched the explicit prototype allowlist.",
-                block_code=(
-                    ActionToolBoundaryBlockCode.candidate_class_ineligible
-                    if not eligible_class
-                    else ActionToolBoundaryBlockCode.candidate_rank_ineligible
-                ),
-                metadata={
-                    "candidate_class": candidate_class,
-                    "candidate_rank": intent.candidate_rank,
-                    "allowed_candidate_classes": tuple(sorted(self._allowed_safe_click_candidate_classes)),
-                    "maximum_candidate_rank": self._maximum_safe_click_candidate_rank,
-                },
-            ),
-            _check(
-                check_id="candidate_complete",
-                summary="Candidate must be scaffolded and have complete exposure metadata.",
-                condition=(
-                    intent.status is ActionIntentStatus.scaffolded
-                    and completeness_status == "available"
-                ),
-                blocked_reason="Candidate metadata is incomplete for the click prototype.",
-                satisfied_reason="Candidate metadata is complete for the click prototype.",
-                block_code=ActionToolBoundaryBlockCode.candidate_metadata_incomplete,
-                metadata={
-                    "intent_status": intent.status.value,
-                    "candidate_exposure_completeness_status": completeness_status,
-                },
-            ),
-            _check(
-                check_id="candidate_score_threshold",
-                summary="Candidate confidence must meet the real-click threshold.",
-                condition=eligible_score,
-                blocked_reason="Candidate confidence was too low for the real-click prototype.",
-                satisfied_reason="Candidate confidence met the real-click threshold.",
-                block_code=ActionToolBoundaryBlockCode.candidate_score_ineligible,
-                metadata={
-                    "candidate_score": intent.candidate_score,
-                    "minimum_confidence": self._minimum_safe_click_confidence,
-                },
-            ),
-            _check(
-                check_id="dry_run_would_execute",
-                summary="Dry-run evaluation must conclude that the intent would execute safely.",
-                condition=dry_run_evaluation.disposition is DryRunActionDisposition.would_execute,
-                blocked_reason=f"Dry-run evaluation blocked the intent: {dry_run_evaluation.summary}",
-                satisfied_reason="Dry-run evaluation allowed the intent.",
-                block_code=ActionToolBoundaryBlockCode.dry_run_not_accepted,
-                metadata={"dry_run_disposition": dry_run_evaluation.disposition.value},
-            ),
-            _check(
-                check_id="target_screen_point_available",
-                summary="A validated screen click target must be available.",
-                condition=target_screen_point is not None,
-                blocked_reason="No validated screen click target was available.",
-                satisfied_reason="A screen click target was derived from the normalized intent target.",
-                block_code=ActionToolBoundaryBlockCode.missing_screen_target,
-                metadata={
-                    "target_screen_point": (
-                        None
-                        if target_screen_point is None
-                        else (target_screen_point.x_px, target_screen_point.y_px)
-                    ),
-                },
-            ),
-            _check(
-                check_id="policy_allow",
-                summary="Policy must explicitly allow the live click attempt.",
-                condition=policy_allowed,
-                blocked_reason=(
-                    "Policy blocked the live click attempt: "
-                    f"{policy_decision.reason if policy_decision is not None else 'no policy decision'}"
-                ),
-                satisfied_reason="Policy allowed the live click attempt.",
-                block_code=ActionToolBoundaryBlockCode.policy_denied,
-                metadata={
-                    "policy_verdict": None if policy_decision is None else policy_decision.verdict.value,
-                    "policy_reason": None if policy_decision is None else policy_decision.reason,
-                },
-                pending=not real_click_mode_enabled,
-            ),
-            _check(
-                check_id="click_transport_available",
-                summary="A real click transport must be present when execution is requested.",
-                condition=(not execute or click_transport_available),
-                blocked_reason="Execution was requested without a real click transport.",
-                satisfied_reason="Click transport is available for the requested path.",
-                block_code=ActionToolBoundaryBlockCode.click_transport_unavailable,
-                metadata={"execute_requested": execute},
-            ),
+            None,
         )
+        planned_checks: list[tuple[str, ActionToolBoundaryCheckOutcome]] = [
+            (
+                "real_click_mode_enabled",
+                _check(
+                    check_id="real_click_mode_enabled",
+                    summary="Real click mode requires safe_action_mode plus allow_live_input=True.",
+                    condition=real_click_mode_enabled,
+                    blocked_reason="RunConfig did not explicitly enable the real click prototype.",
+                    satisfied_reason="Real click mode is explicitly enabled.",
+                    block_code=ActionToolBoundaryBlockCode.real_click_mode_disabled,
+                    metadata={"mode": config.mode.value, "allow_live_input": config.allow_live_input},
+                ),
+            ),
+            (
+                "explicit_candidate_allowlist",
+                _check(
+                    check_id="explicit_candidate_allowlist",
+                    summary="Only top-ranked button-like candidates are explicitly eligible.",
+                    condition=eligible_class and eligible_rank,
+                    blocked_reason="Candidate did not match the explicit prototype allowlist.",
+                    satisfied_reason="Candidate matched the explicit prototype allowlist.",
+                    block_code=(
+                        ActionToolBoundaryBlockCode.candidate_class_ineligible
+                        if not eligible_class
+                        else ActionToolBoundaryBlockCode.candidate_rank_ineligible
+                    ),
+                    metadata={
+                        "candidate_class": candidate_class,
+                        "candidate_rank": intent.candidate_rank,
+                        "allowed_candidate_classes": tuple(
+                            sorted(self._allowed_safe_click_candidate_classes)
+                        ),
+                        "maximum_candidate_rank": self._maximum_safe_click_candidate_rank,
+                    },
+                ),
+            ),
+            (
+                "candidate_complete",
+                _check(
+                    check_id="candidate_complete",
+                    summary="Candidate must be scaffolded and have complete exposure metadata.",
+                    condition=(
+                        intent.status is ActionIntentStatus.scaffolded
+                        and completeness_status == "available"
+                    ),
+                    blocked_reason="Candidate metadata is incomplete for the click prototype.",
+                    satisfied_reason="Candidate metadata is complete for the click prototype.",
+                    block_code=ActionToolBoundaryBlockCode.candidate_metadata_incomplete,
+                    metadata={
+                        "intent_status": intent.status.value,
+                        "candidate_exposure_completeness_status": completeness_status,
+                    },
+                ),
+            ),
+            (
+                "candidate_score_threshold",
+                _check(
+                    check_id="candidate_score_threshold",
+                    summary="Candidate confidence must meet the real-click threshold.",
+                    condition=eligible_score,
+                    blocked_reason="Candidate confidence was too low for the real-click prototype.",
+                    satisfied_reason="Candidate confidence met the real-click threshold.",
+                    block_code=ActionToolBoundaryBlockCode.candidate_score_ineligible,
+                    metadata={
+                        "candidate_score": intent.candidate_score,
+                        "minimum_confidence": self._minimum_safe_click_confidence,
+                    },
+                ),
+            ),
+            (
+                "dry_run_would_execute",
+                _check(
+                    check_id="dry_run_would_execute",
+                    summary="Dry-run evaluation must conclude that the intent would execute safely.",
+                    condition=(
+                        dry_run_evaluation.disposition
+                        is DryRunActionDisposition.would_execute
+                    ),
+                    blocked_reason=(
+                        "Dry-run evaluation blocked the intent: "
+                        f"{dry_run_evaluation.summary}"
+                    ),
+                    satisfied_reason="Dry-run evaluation allowed the intent.",
+                    block_code=ActionToolBoundaryBlockCode.dry_run_not_accepted,
+                    metadata={"dry_run_disposition": dry_run_evaluation.disposition.value},
+                ),
+            ),
+            (
+                "target_screen_point_available",
+                _check(
+                    check_id="target_screen_point_available",
+                    summary="A validated screen click target must be available.",
+                    condition=target_screen_point is not None,
+                    blocked_reason="No validated screen click target was available.",
+                    satisfied_reason=(
+                        "A screen click target was derived from the normalized intent target."
+                    ),
+                    block_code=ActionToolBoundaryBlockCode.missing_screen_target,
+                    metadata={
+                        "target_screen_point": (
+                            None
+                            if target_screen_point is None
+                            else (target_screen_point.x_px, target_screen_point.y_px)
+                        ),
+                    },
+                ),
+            ),
+            (
+                "screen_target_cross_validated",
+                _screen_target_cross_validation_check(
+                    intent=intent,
+                    snapshot_candidate=snapshot_candidate,
+                    target_screen_point=target_screen_point,
+                    metrics=metrics,
+                ),
+            ),
+            (
+                "policy_allow",
+                _check(
+                    check_id="policy_allow",
+                    summary="Policy must explicitly allow the live click attempt.",
+                    condition=policy_allowed,
+                    blocked_reason=(
+                        "Policy blocked the live click attempt: "
+                        f"{policy_decision.reason if policy_decision is not None else 'no policy decision'}"
+                    ),
+                    satisfied_reason="Policy allowed the live click attempt.",
+                    block_code=ActionToolBoundaryBlockCode.policy_denied,
+                    metadata={
+                        "policy_verdict": (
+                            None if policy_decision is None else policy_decision.verdict.value
+                        ),
+                        "policy_reason": (
+                            None if policy_decision is None else policy_decision.reason
+                        ),
+                    },
+                    pending=not real_click_mode_enabled,
+                ),
+            ),
+            (
+                "click_transport_available",
+                _check(
+                    check_id="click_transport_available",
+                    summary="A real click transport must be present when execution is requested.",
+                    condition=(not execute or click_transport_available),
+                    blocked_reason="Execution was requested without a real click transport.",
+                    satisfied_reason="Click transport is available for the requested path.",
+                    block_code=ActionToolBoundaryBlockCode.click_transport_unavailable,
+                    metadata={"execute_requested": execute},
+                ),
+            ),
+        ]
+
+        if blocked_common_outcome is not None:
+            return _assessment(
+                surface=ActionToolBoundarySurface.safe_click_prototype,
+                source_kind=ActionToolBoundarySourceKind.action_intent,
+                action_type=intent.action_type,
+                candidate_id=intent.candidate_id,
+                check_outcomes=common_outcomes,
+                metadata={
+                    "evaluated_with_snapshot": snapshot is not None,
+                    "evaluation_snapshot_id": None if snapshot is None else snapshot.snapshot_id,
+                    "execute_requested": execute,
+                    "short_circuit_check_id": blocked_common_outcome.check_id,
+                    "skipped_check_ids": tuple(check_id for check_id, _ in planned_checks),
+                },
+            )
+
+        outcomes = list(common_outcomes)
+        for index, (check_id, outcome) in enumerate(planned_checks):
+            outcomes.append(outcome)
+            if outcome.status is ActionRequirementStatus.blocked:
+                return _assessment(
+                    surface=ActionToolBoundarySurface.safe_click_prototype,
+                    source_kind=ActionToolBoundarySourceKind.action_intent,
+                    action_type=intent.action_type,
+                    candidate_id=intent.candidate_id,
+                    check_outcomes=tuple(outcomes),
+                    metadata={
+                        "evaluated_with_snapshot": snapshot is not None,
+                        "evaluation_snapshot_id": None if snapshot is None else snapshot.snapshot_id,
+                        "execute_requested": execute,
+                        "short_circuit_check_id": check_id,
+                        "skipped_check_ids": tuple(
+                            planned_check_id
+                            for planned_check_id, _ in planned_checks[index + 1 :]
+                        ),
+                    },
+                )
 
         return _assessment(
             surface=ActionToolBoundarySurface.safe_click_prototype,
             source_kind=ActionToolBoundarySourceKind.action_intent,
             action_type=intent.action_type,
             candidate_id=intent.candidate_id,
-            check_outcomes=outcomes,
+            check_outcomes=tuple(outcomes),
             metadata={
                 "evaluated_with_snapshot": snapshot is not None,
                 "evaluation_snapshot_id": None if snapshot is None else snapshot.snapshot_id,
                 "execute_requested": execute,
+                "short_circuit_check_id": None,
+                "skipped_check_ids": (),
             },
         )
 
@@ -629,10 +738,106 @@ def _lookup_snapshot_candidate(
     return snapshot.get_candidate(candidate_id)
 
 
+def _screen_target_cross_validation_check(
+    *,
+    intent: ActionIntent,
+    snapshot_candidate: SemanticCandidate | None,
+    target_screen_point: ScreenPoint | None,
+    metrics: VirtualDesktopMetrics | None,
+) -> ActionToolBoundaryCheckOutcome:
+    pending = (
+        intent.target is None
+        or snapshot_candidate is None
+        or target_screen_point is None
+        or metrics is None
+    )
+    if pending:
+        return _check(
+            check_id="screen_target_cross_validated",
+            summary=(
+                "The late-bound screen target must still match the normalized target "
+                "and candidate screen bounds."
+            ),
+            condition=False,
+            blocked_reason=(
+                "Late-bound screen target cross-validation could not be completed."
+            ),
+            satisfied_reason="",
+            block_code=ActionToolBoundaryBlockCode.screen_target_cross_validation_failed,
+            metadata={
+                "target_screen_point": (
+                    None
+                    if target_screen_point is None
+                    else (target_screen_point.x_px, target_screen_point.y_px)
+                ),
+                "metrics_available": metrics is not None,
+                "snapshot_candidate_present": snapshot_candidate is not None,
+                "has_normalized_target": intent.target is not None,
+            },
+            pending=True,
+        )
+
+    desktop_metrics = _virtual_desktop_screen_metrics(metrics)
+    expected_screen_point = normalized_to_screen(intent.target, desktop_metrics)
+    candidate_screen_bounds = bbox_normalized_to_screen(snapshot_candidate.bounds, desktop_metrics)
+    point_matches_target = target_screen_point == expected_screen_point
+    point_inside_candidate = _screen_point_in_bounds(
+        target_screen_point,
+        candidate_screen_bounds,
+    )
+    blocked_reason = (
+        "Late-bound screen target no longer matched the normalized intent target."
+        if not point_matches_target
+        else "Late-bound screen target no longer fell within the bound candidate screen bounds."
+    )
+    metadata = {
+        "target_screen_point": (target_screen_point.x_px, target_screen_point.y_px),
+        "expected_screen_point": (expected_screen_point.x_px, expected_screen_point.y_px),
+        "candidate_screen_bounds": {
+            "left_px": candidate_screen_bounds.left_px,
+            "top_px": candidate_screen_bounds.top_px,
+            "width_px": candidate_screen_bounds.width_px,
+            "height_px": candidate_screen_bounds.height_px,
+        },
+        "point_matches_normalized_target": point_matches_target,
+        "point_inside_candidate_bounds": point_inside_candidate,
+    }
+    return _check(
+        check_id="screen_target_cross_validated",
+        summary=(
+            "The late-bound screen target must still match the normalized target "
+            "and candidate screen bounds."
+        ),
+        condition=point_matches_target and point_inside_candidate,
+        blocked_reason=blocked_reason,
+        satisfied_reason=(
+            "Late-bound screen target matched the normalized target and current candidate bounds."
+        ),
+        block_code=ActionToolBoundaryBlockCode.screen_target_cross_validation_failed,
+        metadata=metadata,
+    )
+
+
 def _point_in_bounds(point: NormalizedPoint, bounds: NormalizedBBox) -> bool:
     right = bounds.left + bounds.width
     bottom = bounds.top + bounds.height
     return bounds.left <= point.x <= right and bounds.top <= point.y <= bottom
+
+
+def _screen_point_in_bounds(point: ScreenPoint, bounds: ScreenBBox) -> bool:
+    return bounds.left_px <= point.x_px < bounds.right_px and bounds.top_px <= point.y_px < bounds.bottom_px
+
+
+def _virtual_desktop_screen_metrics(metrics: VirtualDesktopMetrics) -> ScreenMetrics:
+    bounds = metrics.bounds
+    return ScreenMetrics(
+        width_px=bounds.width_px,
+        height_px=bounds.height_px,
+        origin_x_px=bounds.left_px,
+        origin_y_px=bounds.top_px,
+        display_id="virtual_desktop",
+        is_primary=True,
+    )
 
 
 def _real_click_mode_enabled(config: RunConfig) -> bool:

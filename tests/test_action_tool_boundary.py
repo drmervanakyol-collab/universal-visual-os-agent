@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from dataclasses import replace
+
 from test_ai_boundary_contracts import _boundary_context, _center_point
 
 from universal_visual_os_agent.actions import (
@@ -7,6 +9,8 @@ from universal_visual_os_agent.actions import (
     ActionToolBoundaryStatus,
     ActionToolBoundarySurface,
     ObserveOnlyActionToolBoundaryGuard,
+    ObserveOnlyActionIntentScaffolder,
+    ObserveOnlyDryRunActionEngine,
 )
 from universal_visual_os_agent.ai_boundary import (
     AiBoundaryValidationContext,
@@ -15,6 +19,8 @@ from universal_visual_os_agent.ai_boundary import (
     ObserveOnlyAiBoundaryValidator,
     PlannerActionSuggestionContract,
 )
+from universal_visual_os_agent.config import AgentMode, RunConfig
+from universal_visual_os_agent.geometry import ScreenPoint
 from universal_visual_os_agent.semantics import ObserveOnlyCandidateExposer
 
 
@@ -109,3 +115,47 @@ def test_tool_boundary_accepts_scaffolded_intent_for_dry_run_surface() -> None:
     assert boundary_result.assessment is not None
     assert boundary_result.assessment.status is ActionToolBoundaryStatus.allowed
     assert boundary_result.assessment.blocked_check_ids == ()
+
+
+def test_safe_click_tool_boundary_short_circuits_after_first_hard_block() -> None:
+    snapshot = _boundary_context()[0]
+    exposure_result = ObserveOnlyCandidateExposer().expose(snapshot)
+    assert exposure_result.success is True
+    assert exposure_result.exposure_view is not None
+
+    scaffolding_result = ObserveOnlyActionIntentScaffolder().scaffold(
+        snapshot,
+        exposure_view=exposure_result.exposure_view,
+    )
+    assert scaffolding_result.success is True
+    assert scaffolding_result.scaffold_view is not None
+
+    unsupported_intent = replace(
+        scaffolding_result.scaffold_view.intents[0],
+        action_type="hover",
+    )
+    dry_run_result = ObserveOnlyDryRunActionEngine().evaluate_intent(
+        unsupported_intent,
+        snapshot=snapshot,
+    )
+    assert dry_run_result.success is True
+    assert dry_run_result.evaluation is not None
+
+    boundary_result = ObserveOnlyActionToolBoundaryGuard().evaluate_intent_for_safe_click(
+        unsupported_intent,
+        config=RunConfig(mode=AgentMode.safe_action_mode, allow_live_input=True),
+        target_screen_point=ScreenPoint(x_px=100, y_px=100),
+        dry_run_evaluation=dry_run_result.evaluation,
+        policy_decision=None,
+        snapshot=snapshot,
+        execute=True,
+        click_transport_available=True,
+    )
+
+    assert boundary_result.success is True
+    assert boundary_result.assessment is not None
+    assert boundary_result.assessment.status is ActionToolBoundaryStatus.blocked
+    assert boundary_result.assessment.blocked_check_ids == ("supported_action_type",)
+    assert boundary_result.assessment.metadata["short_circuit_check_id"] == "supported_action_type"
+    assert "dry_run_would_execute" in boundary_result.assessment.metadata["skipped_check_ids"]
+    assert "policy_allow" in boundary_result.assessment.metadata["skipped_check_ids"]

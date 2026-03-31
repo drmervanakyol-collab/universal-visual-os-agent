@@ -110,6 +110,7 @@ class ActionToolBoundaryGuard(Protocol):
         target_screen_point: ScreenPoint | None,
         dry_run_evaluation: DryRunActionEvaluation,
         policy_decision: PolicyDecision | None,
+        metrics: VirtualDesktopMetrics | None = None,
         snapshot: SemanticStateSnapshot | None = None,
         execute: bool = False,
         click_transport_available: bool = False,
