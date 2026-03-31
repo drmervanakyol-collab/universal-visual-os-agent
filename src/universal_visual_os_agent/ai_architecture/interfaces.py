@@ -24,6 +24,16 @@ from universal_visual_os_agent.ai_architecture.cloud_planner import (
     CloudPlannerRequestBuildResult,
     CloudPlannerResponseBindResult,
 )
+from universal_visual_os_agent.ai_architecture.cloud_planner_client import (
+    CloudPlannerBackendAvailability,
+    CloudPlannerBackendResult,
+    CloudPlannerExecutionResult,
+    CloudPlannerTransportResponse,
+)
+from universal_visual_os_agent.ai_architecture.cloud_planner_prompt_engine import (
+    CloudPlannerPromptBuildResult,
+    CloudPlannerPromptEnvelope,
+)
 from universal_visual_os_agent.ai_architecture.escalation_engine import (
     DeterministicEscalationDecision,
     DeterministicEscalationEvaluationResult,
@@ -243,6 +253,67 @@ class CloudPlannerScaffolder(Protocol):
         contract: CloudPlannerOutputContract,
     ) -> CloudPlannerResponseBindResult:
         """Return a failure-safe cloud planner response binding result."""
+
+
+class CloudPlannerPromptEngine(Protocol):
+    """Build compact prompts for a backend-backed cloud planner call."""
+
+    def build_prompt(
+        self,
+        request: CloudPlannerRequest,
+        *,
+        attempt_index: int = 1,
+        correction_feedback: str | None = None,
+    ) -> CloudPlannerPromptBuildResult:
+        """Return a failure-safe cloud planner prompt-build result."""
+
+
+class CloudPlannerClient(Protocol):
+    """Issue raw backend requests for the real cloud planner client."""
+
+    @property
+    def availability(self) -> CloudPlannerBackendAvailability:
+        """Return the explicit backend availability state."""
+
+    def complete(
+        self,
+        prompt: CloudPlannerPromptEnvelope,
+    ) -> CloudPlannerTransportResponse:
+        """Return a failure-safe raw transport response."""
+
+
+class CloudPlannerBackend(Protocol):
+    """Run prompt construction, backend transport, and contract parsing safely."""
+
+    def plan(
+        self,
+        request: CloudPlannerRequest,
+    ) -> CloudPlannerBackendResult:
+        """Return a failure-safe backend result."""
+
+
+class CloudPlannerRuntime(Protocol):
+    """Run scaffold construction, planner backend, and response binding safely."""
+
+    def plan(
+        self,
+        snapshot: SemanticStateSnapshot,
+        exposure_view: CandidateExposureView,
+        *,
+        user_objective_summary: str,
+        request_id: str,
+        scenario_definition: ScenarioDefinition | None = None,
+        verification_result: VerificationResult | None = None,
+        action_scaffold_view: ActionIntentScaffoldView | None = None,
+        escalation_decision: DeterministicEscalationDecision | None = None,
+    ) -> CloudPlannerExecutionResult:
+        """Return a failure-safe backend-backed cloud planner result."""
+
+    def plan_request(
+        self,
+        request: CloudPlannerRequest,
+    ) -> CloudPlannerExecutionResult:
+        """Return a failure-safe backend-backed result for an existing request."""
 
 
 class AiArbitrator(Protocol):

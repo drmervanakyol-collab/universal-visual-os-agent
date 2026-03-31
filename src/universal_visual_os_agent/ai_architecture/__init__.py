@@ -53,6 +53,21 @@ _EXPORT_MODULES = {
         "CloudPlannerVerificationContext",
         "ObserveOnlyCloudPlannerScaffolder",
     ),
+    ".cloud_planner_client": (
+        "CloudPlannerBackendAvailability",
+        "CloudPlannerBackendResult",
+        "CloudPlannerClientConfig",
+        "CloudPlannerExecutionResult",
+        "CloudPlannerTransportResponse",
+        "ObserveOnlyBackendBackedCloudPlanner",
+        "ObserveOnlyClientBackedCloudPlannerBackend",
+        "ObserveOnlyOpenAiCompatibleCloudPlannerClient",
+    ),
+    ".cloud_planner_prompt_engine": (
+        "CloudPlannerPromptBuildResult",
+        "CloudPlannerPromptEnvelope",
+        "ObserveOnlyCloudPlannerPromptEngine",
+    ),
     ".escalation_engine": (
         "DeterministicEscalationDecision",
         "DeterministicEscalationDisposition",
@@ -84,7 +99,11 @@ _EXPORT_MODULES = {
     ),
     ".interfaces": (
         "AiArbitrator",
+        "CloudPlannerBackend",
+        "CloudPlannerClient",
+        "CloudPlannerPromptEngine",
         "CloudPlannerScaffolder",
+        "CloudPlannerRuntime",
         "DeterministicEscalationEngine",
         "EscalationPolicyDecider",
         "LocalVisualResolverBackend",
@@ -163,6 +182,21 @@ if TYPE_CHECKING:
         CloudPlannerVerificationContext,
         ObserveOnlyCloudPlannerScaffolder,
     )
+    from .cloud_planner_client import (
+        CloudPlannerBackendAvailability,
+        CloudPlannerBackendResult,
+        CloudPlannerClientConfig,
+        CloudPlannerExecutionResult,
+        CloudPlannerTransportResponse,
+        ObserveOnlyBackendBackedCloudPlanner,
+        ObserveOnlyClientBackedCloudPlannerBackend,
+        ObserveOnlyOpenAiCompatibleCloudPlannerClient,
+    )
+    from .cloud_planner_prompt_engine import (
+        CloudPlannerPromptBuildResult,
+        CloudPlannerPromptEnvelope,
+        ObserveOnlyCloudPlannerPromptEngine,
+    )
     from .contracts import (
         AI_ARCHITECTURE_SCHEMA_VERSION,
         AiArchitectureSignalStatus,
@@ -186,7 +220,11 @@ if TYPE_CHECKING:
     )
     from .interfaces import (
         AiArbitrator,
+        CloudPlannerBackend,
+        CloudPlannerClient,
+        CloudPlannerPromptEngine,
         CloudPlannerScaffolder,
+        CloudPlannerRuntime,
         DeterministicEscalationEngine,
         EscalationPolicyDecider,
         LocalVisualResolverBackend,
