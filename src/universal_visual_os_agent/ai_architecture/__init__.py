@@ -74,11 +74,21 @@ _EXPORT_MODULES = {
         "LocalVisualResolverTaskType",
         "ObserveOnlyLocalVisualResolverScaffolder",
     ),
+    ".local_visual_resolver_backend": (
+        "LocalVisualResolverBackendAvailability",
+        "LocalVisualResolverBackendConfig",
+        "LocalVisualResolverBackendResult",
+        "LocalVisualResolverExecutionResult",
+        "ObserveOnlyBackendBackedLocalVisualResolver",
+        "ObserveOnlyMetadataLocalVisualResolverBackend",
+    ),
     ".interfaces": (
         "AiArbitrator",
         "CloudPlannerScaffolder",
         "DeterministicEscalationEngine",
         "EscalationPolicyDecider",
+        "LocalVisualResolverBackend",
+        "LocalVisualResolverRuntime",
         "LocalVisualResolverScaffolder",
         "PlannerContractBuilder",
         "ResolverContractBuilder",
@@ -179,6 +189,8 @@ if TYPE_CHECKING:
         CloudPlannerScaffolder,
         DeterministicEscalationEngine,
         EscalationPolicyDecider,
+        LocalVisualResolverBackend,
+        LocalVisualResolverRuntime,
         LocalVisualResolverScaffolder,
         PlannerContractBuilder,
         ResolverContractBuilder,
@@ -197,6 +209,14 @@ if TYPE_CHECKING:
         LocalVisualResolverShortlistEntry,
         LocalVisualResolverTaskType,
         ObserveOnlyLocalVisualResolverScaffolder,
+    )
+    from .local_visual_resolver_backend import (
+        LocalVisualResolverBackendAvailability,
+        LocalVisualResolverBackendConfig,
+        LocalVisualResolverBackendResult,
+        LocalVisualResolverExecutionResult,
+        ObserveOnlyBackendBackedLocalVisualResolver,
+        ObserveOnlyMetadataLocalVisualResolverBackend,
     )
     from .ontology import (
         SHARED_AI_ONTOLOGY_VERSION,

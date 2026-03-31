@@ -35,6 +35,10 @@ from universal_visual_os_agent.ai_architecture.local_visual_resolver import (
     LocalVisualResolverResponseBindResult,
     LocalVisualResolverTaskType,
 )
+from universal_visual_os_agent.ai_architecture.local_visual_resolver_backend import (
+    LocalVisualResolverBackendResult,
+    LocalVisualResolverExecutionResult,
+)
 from universal_visual_os_agent.ai_architecture.ontology import (
     SharedCandidateLabel,
     SharedCandidateOntologyBinding,
@@ -177,6 +181,42 @@ class LocalVisualResolverScaffolder(Protocol):
         contract: LocalVisualResolverOutputContract,
     ) -> LocalVisualResolverResponseBindResult:
         """Return a failure-safe local visual resolver response binding result."""
+
+
+class LocalVisualResolverBackend(Protocol):
+    """Resolve compact local-visual-resolver requests behind the scaffold."""
+
+    def resolve(
+        self,
+        request: LocalVisualResolverRequest,
+    ) -> LocalVisualResolverBackendResult:
+        """Return a failure-safe backend evaluation result."""
+
+
+class LocalVisualResolverRuntime(Protocol):
+    """Run scaffold construction, backend resolution, and safe response binding."""
+
+    def resolve(
+        self,
+        snapshot: SemanticStateSnapshot,
+        exposure_view: CandidateExposureView,
+        *,
+        candidate_ids: tuple[str, ...],
+        summary: str,
+        request_id: str,
+        task_type: LocalVisualResolverTaskType = LocalVisualResolverTaskType.choose_candidate,
+        expected_target_label: SharedTargetLabel = SharedTargetLabel.candidate_center,
+        allowed_candidate_labels: tuple[SharedCandidateLabel, ...] = (),
+        escalation_decision: DeterministicEscalationDecision | None = None,
+        scenario_id: str | None = None,
+    ) -> LocalVisualResolverExecutionResult:
+        """Return a failure-safe backend-backed local resolver result."""
+
+    def resolve_request(
+        self,
+        request: LocalVisualResolverRequest,
+    ) -> LocalVisualResolverExecutionResult:
+        """Return a failure-safe backend-backed result for an existing request."""
 
 
 class CloudPlannerScaffolder(Protocol):
