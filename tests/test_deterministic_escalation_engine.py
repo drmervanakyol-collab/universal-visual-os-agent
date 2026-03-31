@@ -67,6 +67,8 @@ def test_deterministic_escalation_returns_deterministic_ok_for_clear_candidate()
     assert result.decision.disposition is DeterministicEscalationDisposition.deterministic_ok
     assert result.decision.recommended_source is ArbitrationSource.deterministic_pipeline
     assert result.decision.reason_codes == (DeterministicEscalationReason.deterministic_sufficient,)
+    assert result.decision.metadata["selected_rule_id"] == "deterministic_ok_clear"
+    assert result.details["selected_rule_id"] == "deterministic_ok_clear"
     assert result.decision.observe_only is True
     assert result.decision.read_only is True
     assert result.decision.non_executing is True
@@ -92,6 +94,8 @@ def test_deterministic_escalation_recommends_local_resolver_for_ambiguity() -> N
     assert result.decision.disposition is DeterministicEscalationDisposition.local_resolver_recommended
     assert result.decision.recommended_source is ArbitrationSource.local_visual_resolver
     assert DeterministicEscalationReason.disambiguation_needed in result.decision.reason_codes
+    assert result.decision.metadata["selected_rule_id"] == "local_resolver_recommended"
+    assert result.details["selected_rule_id"] == "local_resolver_recommended"
 
 
 def test_deterministic_escalation_recommends_cloud_planner_for_source_conflict() -> None:
@@ -114,6 +118,8 @@ def test_deterministic_escalation_recommends_cloud_planner_for_source_conflict()
     assert result.decision.disposition is DeterministicEscalationDisposition.cloud_planner_recommended
     assert result.decision.recommended_source is ArbitrationSource.cloud_planner
     assert DeterministicEscalationReason.source_conflict_present in result.decision.reason_codes
+    assert result.decision.metadata["selected_rule_id"] == "planner_recommended_for_conflict"
+    assert result.details["selected_rule_id"] == "planner_recommended_for_conflict"
 
 
 def test_deterministic_escalation_requires_human_confirmation_for_high_risk_multi_source_conflict() -> None:
@@ -185,6 +191,8 @@ def test_deterministic_escalation_requires_human_confirmation_for_high_risk_mult
     assert result.decision.disposition is DeterministicEscalationDisposition.human_confirmation_required
     assert result.decision.recommended_source is None
     assert DeterministicEscalationReason.conflicting_high_risk_signals in result.decision.reason_codes
+    assert result.decision.metadata["selected_rule_id"] == "resolver_conflict_human_confirmation"
+    assert result.details["selected_rule_id"] == "resolver_conflict_human_confirmation"
 
 
 def test_deterministic_escalation_blocks_on_missing_or_partial_input() -> None:
@@ -222,6 +230,7 @@ def test_deterministic_escalation_blocks_on_missing_or_partial_input() -> None:
     assert missing_result.decision.reason_codes == (
         DeterministicEscalationReason.deterministic_binding_missing,
     )
+    assert missing_result.decision.metadata["selected_rule_id"] == "blocked_missing_binding"
     assert partial_result.success is True
     assert partial_result.decision is not None
     assert partial_result.decision.disposition is DeterministicEscalationDisposition.blocked
@@ -229,6 +238,7 @@ def test_deterministic_escalation_blocks_on_missing_or_partial_input() -> None:
     assert partial_result.decision.reason_codes == (
         DeterministicEscalationReason.deterministic_binding_partial,
     )
+    assert partial_result.decision.metadata["selected_rule_id"] == "blocked_partial_binding"
 
 
 def test_deterministic_escalation_does_not_propagate_unhandled_exceptions() -> None:
@@ -241,3 +251,5 @@ def test_deterministic_escalation_does_not_propagate_unhandled_exceptions() -> N
     assert result.success is False
     assert result.error_code == "deterministic_escalation_exception"
     assert result.error_message == "deterministic escalation exploded"
+    assert result.details["exception_type"] == "RuntimeError"
+    assert result.details["exception_stage"] == "evaluate"

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from enum import StrEnum
+import logging
 from typing import Mapping, Self
 
 from universal_visual_os_agent.ai_architecture.arbitration import (
@@ -21,6 +22,9 @@ from universal_visual_os_agent.ai_architecture.ontology import (
     SharedCandidateOntologyBinding,
 )
 from universal_visual_os_agent.semantics.ontology import CandidateSelectionRiskLevel
+
+
+_LOGGER = logging.getLogger(__name__)
 
 
 class DeterministicEscalationDisposition(StrEnum):
@@ -167,11 +171,12 @@ class ObserveOnlyDeterministicEscalationEngine:
                 signal_status=signal_status,
             )
         except Exception as exc:  # noqa: BLE001 - escalation must remain failure-safe
+            _LOGGER.exception("Deterministic escalation fell back to a failure-safe result.")
             return DeterministicEscalationEvaluationResult.failure(
                 engine_name=self.engine_name,
                 error_code="deterministic_escalation_exception",
                 error_message=str(exc),
-                details={"exception_type": type(exc).__name__},
+                details={"exception_type": type(exc).__name__, "exception_stage": "evaluate"},
             )
         return DeterministicEscalationEvaluationResult.ok(
             engine_name=self.engine_name,
@@ -182,6 +187,7 @@ class ObserveOnlyDeterministicEscalationEngine:
                 "recommended_source": (
                     None if decision.recommended_source is None else decision.recommended_source.value
                 ),
+                "selected_rule_id": decision.metadata.get("selected_rule_id"),
             },
         )
 
@@ -195,8 +201,75 @@ class ObserveOnlyDeterministicEscalationEngine:
         policy: EscalationPolicy,
         signal_status: AiArchitectureSignalStatus,
     ) -> DeterministicEscalationDecision:
-        reasons: list[DeterministicEscalationReason] = []
+        early_block_decision = self._early_block_decision(
+            deterministic_binding=deterministic_binding,
+            resolver_response=resolver_response,
+            planner_response=planner_response,
+            conflicts=conflicts,
+            policy=policy,
+            signal_status=signal_status,
+        )
+        if early_block_decision is not None:
+            return early_block_decision
 
+        assert deterministic_binding is not None
+        high_risk = deterministic_binding.selection_risk_level is CandidateSelectionRiskLevel.high
+        local_resolver_reasons = _local_resolver_reason_codes(
+            deterministic_binding=deterministic_binding,
+            policy=policy,
+        )
+        conflict_reasons = _conflict_reason_codes(
+            deterministic_binding=deterministic_binding,
+            conflicts=conflicts,
+        )
+        material_conflicts_present = (
+            DeterministicEscalationReason.arbitration_conflict_present in conflict_reasons
+        )
+
+        if local_resolver_reasons:
+            return self._local_resolver_path_decision(
+                resolver_response=resolver_response,
+                planner_response=planner_response,
+                conflicts=conflicts,
+                policy=policy,
+                signal_status=signal_status,
+                high_risk=high_risk,
+                reason_codes=tuple(local_resolver_reasons + conflict_reasons),
+                material_conflicts_present=material_conflicts_present,
+            )
+
+        if deterministic_binding.source_conflict_present or material_conflicts_present:
+            return self._planner_conflict_path_decision(
+                planner_response=planner_response,
+                conflicts=conflicts,
+                policy=policy,
+                signal_status=signal_status,
+                high_risk=high_risk,
+                reason_codes=tuple(conflict_reasons),
+                material_conflicts_present=material_conflicts_present,
+            )
+
+        return _decision(
+            disposition=DeterministicEscalationDisposition.deterministic_ok,
+            summary="Deterministic candidate evidence is sufficient, so no escalation is needed.",
+            signal_status=signal_status,
+            recommended_source=ArbitrationSource.deterministic_pipeline,
+            reason_codes=(DeterministicEscalationReason.deterministic_sufficient,),
+            conflicts=conflicts,
+            policy=policy,
+            rule_id="deterministic_ok_clear",
+        )
+
+    def _early_block_decision(
+        self,
+        *,
+        deterministic_binding: SharedCandidateOntologyBinding | None,
+        resolver_response: ResolverResponseContract | None,
+        planner_response: PlannerResponseContract | None,
+        conflicts: tuple[ArbitrationConflict, ...],
+        policy: EscalationPolicy,
+        signal_status: AiArchitectureSignalStatus,
+    ) -> DeterministicEscalationDecision | None:
         if deterministic_binding is None:
             return _decision(
                 disposition=DeterministicEscalationDisposition.blocked,
@@ -206,8 +279,8 @@ class ObserveOnlyDeterministicEscalationEngine:
                 reason_codes=(DeterministicEscalationReason.deterministic_binding_missing,),
                 conflicts=conflicts,
                 policy=policy,
+                rule_id="blocked_missing_binding",
             )
-
         if deterministic_binding.completeness_status != "available":
             return _decision(
                 disposition=DeterministicEscalationDisposition.blocked,
@@ -217,8 +290,8 @@ class ObserveOnlyDeterministicEscalationEngine:
                 reason_codes=(DeterministicEscalationReason.deterministic_binding_partial,),
                 conflicts=conflicts,
                 policy=policy,
+                rule_id="blocked_partial_binding",
             )
-
         if resolver_response is not None and resolver_response.signal_status is not AiArchitectureSignalStatus.available:
             return _decision(
                 disposition=DeterministicEscalationDisposition.blocked,
@@ -228,8 +301,8 @@ class ObserveOnlyDeterministicEscalationEngine:
                 reason_codes=(DeterministicEscalationReason.resolver_response_partial,),
                 conflicts=conflicts,
                 policy=policy,
+                rule_id="blocked_partial_resolver_response",
             )
-
         if planner_response is not None and planner_response.signal_status is not AiArchitectureSignalStatus.available:
             return _decision(
                 disposition=DeterministicEscalationDisposition.blocked,
@@ -239,8 +312,8 @@ class ObserveOnlyDeterministicEscalationEngine:
                 reason_codes=(DeterministicEscalationReason.planner_response_partial,),
                 conflicts=conflicts,
                 policy=policy,
+                rule_id="blocked_partial_planner_response",
             )
-
         if planner_response is not None and planner_response.live_execution_requested:
             return _decision(
                 disposition=DeterministicEscalationDisposition.blocked,
@@ -250,8 +323,8 @@ class ObserveOnlyDeterministicEscalationEngine:
                 reason_codes=(DeterministicEscalationReason.planner_live_execution_requested,),
                 conflicts=conflicts,
                 policy=policy,
+                rule_id="blocked_planner_live_execution",
             )
-
         if _contains_conflict(conflicts, ArbitrationConflictKind.safety_ineligibility):
             return _decision(
                 disposition=DeterministicEscalationDisposition.blocked,
@@ -261,8 +334,8 @@ class ObserveOnlyDeterministicEscalationEngine:
                 reason_codes=(DeterministicEscalationReason.safety_ineligibility_conflict,),
                 conflicts=conflicts,
                 policy=policy,
+                rule_id="blocked_safety_ineligibility_conflict",
             )
-
         if _contains_conflict(
             conflicts,
             ArbitrationConflictKind.missing_contract,
@@ -276,178 +349,199 @@ class ObserveOnlyDeterministicEscalationEngine:
                 reason_codes=(DeterministicEscalationReason.incomplete_contract_conflict,),
                 conflicts=conflicts,
                 policy=policy,
+                rule_id="blocked_incomplete_contract_conflict",
             )
+        return None
 
-        high_risk = deterministic_binding.selection_risk_level is CandidateSelectionRiskLevel.high
-        deterministic_confidence_low = (
-            deterministic_binding.confidence is not None
-            and deterministic_binding.confidence < policy.deterministic_confidence_threshold
-        )
-        deterministic_confidence_missing = deterministic_binding.confidence is None
-
-        local_resolver_needed = False
-        if deterministic_binding.requires_local_resolver:
-            local_resolver_needed = True
-            reasons.append(DeterministicEscalationReason.requires_local_resolver)
-        if deterministic_binding.disambiguation_needed:
-            local_resolver_needed = True
-            reasons.append(DeterministicEscalationReason.disambiguation_needed)
-        if high_risk and policy.local_resolver_for_high_risk:
-            local_resolver_needed = True
-            reasons.append(DeterministicEscalationReason.high_selection_risk)
-        if deterministic_confidence_low:
-            local_resolver_needed = True
-            reasons.append(DeterministicEscalationReason.deterministic_confidence_below_threshold)
-        if deterministic_confidence_missing:
-            local_resolver_needed = True
-            reasons.append(DeterministicEscalationReason.deterministic_confidence_unavailable)
-
-        material_conflicts_present = _contains_conflict(
-            conflicts,
-            ArbitrationConflictKind.candidate_reference_mismatch,
-            ArbitrationConflictKind.label_mismatch,
-            ArbitrationConflictKind.target_label_mismatch,
-            ArbitrationConflictKind.action_mismatch,
-            ArbitrationConflictKind.confidence_disagreement,
-        )
-        if material_conflicts_present:
-            reasons.append(DeterministicEscalationReason.arbitration_conflict_present)
-        if deterministic_binding.source_conflict_present:
-            reasons.append(DeterministicEscalationReason.source_conflict_present)
-
-        if local_resolver_needed:
-            if resolver_response is None:
-                return _decision(
-                    disposition=DeterministicEscalationDisposition.local_resolver_recommended,
-                    summary="Deterministic ambiguity or risk signals recommend a local resolver check.",
-                    signal_status=signal_status,
-                    recommended_source=ArbitrationSource.local_visual_resolver,
-                    reason_codes=tuple(reasons),
-                    conflicts=conflicts,
-                    policy=policy,
-                )
-            if not _confidence_meets_threshold(
-                resolver_response.confidence,
-                threshold=policy.local_resolver_confidence_threshold,
-            ):
-                reasons.append(DeterministicEscalationReason.resolver_confidence_insufficient)
-                if planner_response is None:
-                    return _decision(
-                        disposition=DeterministicEscalationDisposition.cloud_planner_recommended,
-                        summary="Resolver evidence is insufficient, so cloud-planner escalation is recommended.",
-                        signal_status=signal_status,
-                        recommended_source=ArbitrationSource.cloud_planner,
-                        reason_codes=tuple(reasons),
-                        conflicts=conflicts,
-                        policy=policy,
-                    )
-                return _decision(
-                    disposition=DeterministicEscalationDisposition.human_confirmation_required,
-                    summary="Resolver evidence remains insufficient after additional escalation, so human confirmation is required.",
-                    signal_status=signal_status,
-                    recommended_source=None,
-                    reason_codes=tuple(
-                        reasons + [DeterministicEscalationReason.multi_source_conflict]
-                    ),
-                    conflicts=conflicts,
-                    policy=policy,
-                )
-            if material_conflicts_present:
-                if planner_response is None:
-                    return _decision(
-                        disposition=DeterministicEscalationDisposition.cloud_planner_recommended,
-                        summary="Resolver output still conflicts with deterministic signals, so cloud-planner escalation is recommended.",
-                        signal_status=signal_status,
-                        recommended_source=ArbitrationSource.cloud_planner,
-                        reason_codes=tuple(reasons),
-                        conflicts=conflicts,
-                        policy=policy,
-                    )
-                return _decision(
-                    disposition=DeterministicEscalationDisposition.human_confirmation_required,
-                    summary="High-confidence deterministic and AI signals still conflict, so human confirmation is required.",
-                    signal_status=signal_status,
-                    recommended_source=None,
-                    reason_codes=tuple(
-                        reasons
-                        + [
-                            DeterministicEscalationReason.conflicting_high_risk_signals
-                            if high_risk
-                            else DeterministicEscalationReason.multi_source_conflict
-                        ]
-                    ),
-                    conflicts=conflicts,
-                    policy=policy,
-                )
-            reasons.append(DeterministicEscalationReason.deterministic_sufficient)
+    def _local_resolver_path_decision(
+        self,
+        *,
+        resolver_response: ResolverResponseContract | None,
+        planner_response: PlannerResponseContract | None,
+        conflicts: tuple[ArbitrationConflict, ...],
+        policy: EscalationPolicy,
+        signal_status: AiArchitectureSignalStatus,
+        high_risk: bool,
+        reason_codes: tuple[DeterministicEscalationReason, ...],
+        material_conflicts_present: bool,
+    ) -> DeterministicEscalationDecision:
+        if resolver_response is None:
             return _decision(
-                disposition=DeterministicEscalationDisposition.deterministic_ok,
-                summary="Resolver-supported deterministic context is sufficient, so no further escalation is needed.",
+                disposition=DeterministicEscalationDisposition.local_resolver_recommended,
+                summary="Deterministic ambiguity or risk signals recommend a local resolver check.",
                 signal_status=signal_status,
-                recommended_source=ArbitrationSource.deterministic_pipeline,
-                reason_codes=tuple(reasons),
+                recommended_source=ArbitrationSource.local_visual_resolver,
+                reason_codes=reason_codes,
                 conflicts=conflicts,
                 policy=policy,
+                rule_id="local_resolver_recommended",
             )
-
-        if deterministic_binding.source_conflict_present or material_conflicts_present:
+        if not _confidence_meets_threshold(
+            resolver_response.confidence,
+            threshold=policy.local_resolver_confidence_threshold,
+        ):
+            reasons = reason_codes + (DeterministicEscalationReason.resolver_confidence_insufficient,)
             if planner_response is None:
                 return _decision(
                     disposition=DeterministicEscalationDisposition.cloud_planner_recommended,
-                    summary="Source conflict or unresolved arbitration disagreement recommends cloud-planner escalation.",
+                    summary="Resolver evidence is insufficient, so cloud-planner escalation is recommended.",
                     signal_status=signal_status,
                     recommended_source=ArbitrationSource.cloud_planner,
-                    reason_codes=tuple(reasons),
+                    reason_codes=reasons,
                     conflicts=conflicts,
                     policy=policy,
+                    rule_id="resolver_insufficient_cloud_planner",
                 )
-            if not _confidence_meets_threshold(
-                planner_response.confidence,
-                threshold=policy.cloud_planner_confidence_threshold,
-            ):
-                return _decision(
-                    disposition=DeterministicEscalationDisposition.human_confirmation_required,
-                    summary="Cloud-planner evidence is still insufficient, so human confirmation is required.",
-                    signal_status=signal_status,
-                    recommended_source=None,
-                    reason_codes=tuple(
-                        reasons + [DeterministicEscalationReason.planner_confidence_insufficient]
-                    ),
-                    conflicts=conflicts,
-                    policy=policy,
-                )
-            if high_risk and material_conflicts_present:
-                return _decision(
-                    disposition=DeterministicEscalationDisposition.human_confirmation_required,
-                    summary="High-risk multi-source disagreement remains unresolved, so human confirmation is required.",
-                    signal_status=signal_status,
-                    recommended_source=None,
-                    reason_codes=tuple(
-                        reasons + [DeterministicEscalationReason.conflicting_high_risk_signals]
-                    ),
-                    conflicts=conflicts,
-                    policy=policy,
-                )
-            reasons.append(DeterministicEscalationReason.deterministic_sufficient)
             return _decision(
-                disposition=DeterministicEscalationDisposition.deterministic_ok,
-                summary="Current multi-source evidence is sufficient, so no further escalation is needed.",
+                disposition=DeterministicEscalationDisposition.human_confirmation_required,
+                summary="Resolver evidence remains insufficient after additional escalation, so human confirmation is required.",
                 signal_status=signal_status,
-                recommended_source=ArbitrationSource.deterministic_pipeline,
-                reason_codes=tuple(reasons),
+                recommended_source=None,
+                reason_codes=reasons + (DeterministicEscalationReason.multi_source_conflict,),
                 conflicts=conflicts,
                 policy=policy,
+                rule_id="resolver_insufficient_human_confirmation",
             )
-
+        if material_conflicts_present:
+            if planner_response is None:
+                return _decision(
+                    disposition=DeterministicEscalationDisposition.cloud_planner_recommended,
+                    summary="Resolver output still conflicts with deterministic signals, so cloud-planner escalation is recommended.",
+                    signal_status=signal_status,
+                    recommended_source=ArbitrationSource.cloud_planner,
+                    reason_codes=reason_codes,
+                    conflicts=conflicts,
+                    policy=policy,
+                    rule_id="resolver_conflict_cloud_planner",
+                )
+            return _decision(
+                disposition=DeterministicEscalationDisposition.human_confirmation_required,
+                summary="High-confidence deterministic and AI signals still conflict, so human confirmation is required.",
+                signal_status=signal_status,
+                recommended_source=None,
+                reason_codes=reason_codes
+                + (
+                    DeterministicEscalationReason.conflicting_high_risk_signals
+                    if high_risk
+                    else DeterministicEscalationReason.multi_source_conflict,
+                ),
+                conflicts=conflicts,
+                policy=policy,
+                rule_id="resolver_conflict_human_confirmation",
+            )
         return _decision(
             disposition=DeterministicEscalationDisposition.deterministic_ok,
-            summary="Deterministic candidate evidence is sufficient, so no escalation is needed.",
+            summary="Resolver-supported deterministic context is sufficient, so no further escalation is needed.",
             signal_status=signal_status,
             recommended_source=ArbitrationSource.deterministic_pipeline,
-            reason_codes=(DeterministicEscalationReason.deterministic_sufficient,),
+            reason_codes=reason_codes + (DeterministicEscalationReason.deterministic_sufficient,),
             conflicts=conflicts,
             policy=policy,
+            rule_id="deterministic_ok_after_resolver",
         )
+
+    def _planner_conflict_path_decision(
+        self,
+        *,
+        planner_response: PlannerResponseContract | None,
+        conflicts: tuple[ArbitrationConflict, ...],
+        policy: EscalationPolicy,
+        signal_status: AiArchitectureSignalStatus,
+        high_risk: bool,
+        reason_codes: tuple[DeterministicEscalationReason, ...],
+        material_conflicts_present: bool,
+    ) -> DeterministicEscalationDecision:
+        if planner_response is None:
+            return _decision(
+                disposition=DeterministicEscalationDisposition.cloud_planner_recommended,
+                summary="Source conflict or unresolved arbitration disagreement recommends cloud-planner escalation.",
+                signal_status=signal_status,
+                recommended_source=ArbitrationSource.cloud_planner,
+                reason_codes=reason_codes,
+                conflicts=conflicts,
+                policy=policy,
+                rule_id="planner_recommended_for_conflict",
+            )
+        if not _confidence_meets_threshold(
+            planner_response.confidence,
+            threshold=policy.cloud_planner_confidence_threshold,
+        ):
+            return _decision(
+                disposition=DeterministicEscalationDisposition.human_confirmation_required,
+                summary="Cloud-planner evidence is still insufficient, so human confirmation is required.",
+                signal_status=signal_status,
+                recommended_source=None,
+                reason_codes=reason_codes + (DeterministicEscalationReason.planner_confidence_insufficient,),
+                conflicts=conflicts,
+                policy=policy,
+                rule_id="planner_insufficient_human_confirmation",
+            )
+        if high_risk and material_conflicts_present:
+            return _decision(
+                disposition=DeterministicEscalationDisposition.human_confirmation_required,
+                summary="High-risk multi-source disagreement remains unresolved, so human confirmation is required.",
+                signal_status=signal_status,
+                recommended_source=None,
+                reason_codes=reason_codes + (DeterministicEscalationReason.conflicting_high_risk_signals,),
+                conflicts=conflicts,
+                policy=policy,
+                rule_id="high_risk_multi_source_human_confirmation",
+            )
+        return _decision(
+            disposition=DeterministicEscalationDisposition.deterministic_ok,
+            summary="Current multi-source evidence is sufficient, so no further escalation is needed.",
+            signal_status=signal_status,
+            recommended_source=ArbitrationSource.deterministic_pipeline,
+            reason_codes=reason_codes + (DeterministicEscalationReason.deterministic_sufficient,),
+            conflicts=conflicts,
+            policy=policy,
+            rule_id="deterministic_ok_multi_source",
+        )
+
+
+def _local_resolver_reason_codes(
+    *,
+    deterministic_binding: SharedCandidateOntologyBinding,
+    policy: EscalationPolicy,
+) -> list[DeterministicEscalationReason]:
+    reasons: list[DeterministicEscalationReason] = []
+    if deterministic_binding.requires_local_resolver:
+        reasons.append(DeterministicEscalationReason.requires_local_resolver)
+    if deterministic_binding.disambiguation_needed:
+        reasons.append(DeterministicEscalationReason.disambiguation_needed)
+    if (
+        deterministic_binding.selection_risk_level is CandidateSelectionRiskLevel.high
+        and policy.local_resolver_for_high_risk
+    ):
+        reasons.append(DeterministicEscalationReason.high_selection_risk)
+    if (
+        deterministic_binding.confidence is not None
+        and deterministic_binding.confidence < policy.deterministic_confidence_threshold
+    ):
+        reasons.append(DeterministicEscalationReason.deterministic_confidence_below_threshold)
+    if deterministic_binding.confidence is None:
+        reasons.append(DeterministicEscalationReason.deterministic_confidence_unavailable)
+    return reasons
+
+
+def _conflict_reason_codes(
+    *,
+    deterministic_binding: SharedCandidateOntologyBinding,
+    conflicts: tuple[ArbitrationConflict, ...],
+) -> list[DeterministicEscalationReason]:
+    reasons: list[DeterministicEscalationReason] = []
+    if _contains_conflict(
+        conflicts,
+        ArbitrationConflictKind.candidate_reference_mismatch,
+        ArbitrationConflictKind.label_mismatch,
+        ArbitrationConflictKind.target_label_mismatch,
+        ArbitrationConflictKind.action_mismatch,
+        ArbitrationConflictKind.confidence_disagreement,
+    ):
+        reasons.append(DeterministicEscalationReason.arbitration_conflict_present)
+    if deterministic_binding.source_conflict_present:
+        reasons.append(DeterministicEscalationReason.source_conflict_present)
+    return reasons
 
 
 def _decision(
@@ -459,6 +553,8 @@ def _decision(
     reason_codes: tuple[DeterministicEscalationReason, ...],
     conflicts: tuple[ArbitrationConflict, ...],
     policy: EscalationPolicy,
+    rule_id: str,
+    metadata: Mapping[str, object] | None = None,
 ) -> DeterministicEscalationDecision:
     return DeterministicEscalationDecision(
         disposition=disposition,
@@ -474,9 +570,11 @@ def _decision(
                 "local_resolver_confidence_threshold": policy.local_resolver_confidence_threshold,
                 "cloud_planner_confidence_threshold": policy.cloud_planner_confidence_threshold,
             },
+            "selected_rule_id": rule_id,
             "observe_only": True,
             "read_only": True,
             "non_executing": True,
+            **({} if metadata is None else dict(metadata)),
         },
     )
 

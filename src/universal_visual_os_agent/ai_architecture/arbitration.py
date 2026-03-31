@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from enum import StrEnum
+from itertools import combinations
+import logging
 from typing import Mapping, Self
 
 from universal_visual_os_agent.ai_architecture.contracts import (
@@ -17,6 +19,9 @@ from universal_visual_os_agent.ai_architecture.ontology import (
 )
 from universal_visual_os_agent.ai_boundary.models import AiSuggestedActionType
 from universal_visual_os_agent.semantics.ontology import CandidateSelectionRiskLevel
+
+
+_LOGGER = logging.getLogger(__name__)
 
 
 class ArbitrationSource(StrEnum):
@@ -234,129 +239,239 @@ class ObserveOnlyEscalationPolicyDecider:
             active_policy = EscalationPolicy() if policy is None else policy
             high_risk = _is_high_risk(deterministic_binding)
             reason_codes: list[str] = []
-
-            if deterministic_binding is None:
-                reason_codes.append("deterministic_binding_missing")
-                if active_policy.block_on_incomplete_contracts:
-                    return _decision(
-                        action=EscalationAction.block_for_user_confirmation,
-                        preferred_source=None,
-                        summary="Deterministic candidate context is missing, so arbitration stays blocked.",
-                        reason_codes=reason_codes,
-                    )
-                return _decision(
-                    action=EscalationAction.ask_local_resolver,
-                    preferred_source=ArbitrationSource.local_visual_resolver,
-                    summary="Deterministic candidate context is missing, so the next safe step is a local resolver request.",
+            preliminary_decision = (
+                self._missing_binding_decision(
+                    deterministic_binding=deterministic_binding,
+                    policy=active_policy,
                     reason_codes=reason_codes,
                 )
-
-            if deterministic_binding.completeness_status != "available":
-                reason_codes.append("deterministic_binding_partial")
-                if active_policy.block_on_incomplete_contracts:
-                    return _decision(
-                        action=EscalationAction.block_for_user_confirmation,
-                        preferred_source=None,
-                        summary="Deterministic candidate metadata is incomplete, so arbitration stays blocked.",
-                        reason_codes=reason_codes,
-                    )
-
-            if deterministic_binding.source_conflict_present:
-                reason_codes.append("deterministic_source_conflict")
-                if active_policy.cloud_planner_for_source_conflict:
-                    return _decision(
-                        action=EscalationAction.escalate_to_cloud_planner,
-                        preferred_source=ArbitrationSource.cloud_planner,
-                        summary="Deterministic source conflict requires cloud-planner arbitration scaffolding.",
-                        reason_codes=reason_codes,
-                    )
-
-            if deterministic_binding.requires_local_resolver:
-                reason_codes.append("deterministic_requires_local_resolver")
-                return _decision(
-                    action=EscalationAction.ask_local_resolver,
-                    preferred_source=ArbitrationSource.local_visual_resolver,
-                    summary="Candidate metadata explicitly requires local visual resolution.",
+                or self._incomplete_binding_decision(
+                    deterministic_binding=deterministic_binding,
+                    policy=active_policy,
                     reason_codes=reason_codes,
                 )
-
-            if deterministic_binding.disambiguation_needed:
-                reason_codes.append("deterministic_disambiguation_needed")
-                return _decision(
-                    action=EscalationAction.ask_local_resolver,
-                    preferred_source=ArbitrationSource.local_visual_resolver,
-                    summary="Candidate ambiguity requires local visual resolution before continuing.",
+                or self._source_conflict_decision(
+                    deterministic_binding=deterministic_binding,
+                    policy=active_policy,
                     reason_codes=reason_codes,
                 )
-
-            if high_risk and active_policy.local_resolver_for_high_risk:
-                reason_codes.append("high_selection_risk")
-                return _decision(
-                    action=EscalationAction.ask_local_resolver,
-                    preferred_source=ArbitrationSource.local_visual_resolver,
-                    summary="High-risk candidate selection should be checked by the local resolver first.",
+                or self._local_resolver_needed_decision(
+                    deterministic_binding=deterministic_binding,
+                    policy=active_policy,
+                    high_risk=high_risk,
                     reason_codes=reason_codes,
                 )
+            )
+            if preliminary_decision is not None:
+                return preliminary_decision
 
-            if (
-                deterministic_binding.confidence is not None
-                and deterministic_binding.confidence < active_policy.deterministic_confidence_threshold
-            ):
-                reason_codes.append("deterministic_confidence_below_threshold")
-                return _decision(
-                    action=EscalationAction.ask_local_resolver,
-                    preferred_source=ArbitrationSource.local_visual_resolver,
-                    summary="Deterministic confidence is below threshold, so local resolver escalation is preferred.",
-                    reason_codes=reason_codes,
-                )
-
-            if conflicts:
-                reason_codes.extend(
-                    sorted(dict.fromkeys(f"conflict:{conflict.kind.value}" for conflict in conflicts))
-                )
-                if high_risk and active_policy.require_user_confirmation_for_conflicting_high_risk:
-                    return _decision(
-                        action=EscalationAction.block_for_user_confirmation,
-                        preferred_source=None,
-                        summary="High-risk conflicting signals require user confirmation scaffolding.",
-                        reason_codes=reason_codes,
-                    )
-                if active_policy.block_on_unresolved_disagreement:
-                    if resolver_response is None:
-                        return _decision(
-                            action=EscalationAction.ask_local_resolver,
-                            preferred_source=ArbitrationSource.local_visual_resolver,
-                            summary="Conflicting signals require a local resolver arbitration step.",
-                            reason_codes=reason_codes,
-                        )
-                    if planner_response is None:
-                        return _decision(
-                            action=EscalationAction.escalate_to_cloud_planner,
-                            preferred_source=ArbitrationSource.cloud_planner,
-                            summary="Conflicting deterministic and local signals require cloud-planner escalation scaffolding.",
-                            reason_codes=reason_codes,
-                        )
-                    return _decision(
-                        action=EscalationAction.block_for_user_confirmation,
-                        preferred_source=None,
-                        summary="Conflicting deterministic, local, and planner signals remain blocked pending user confirmation.",
-                        reason_codes=reason_codes,
-                    )
+            conflict_decision = self._conflict_decision(
+                conflicts=conflicts,
+                resolver_response=resolver_response,
+                planner_response=planner_response,
+                policy=active_policy,
+                high_risk=high_risk,
+                reason_codes=reason_codes,
+            )
+            if conflict_decision is not None:
+                return conflict_decision
 
             return _decision(
                 action=EscalationAction.stay_deterministic,
                 preferred_source=ArbitrationSource.deterministic_pipeline,
                 summary="Deterministic pipeline remains the safe source of truth for this candidate.",
                 reason_codes=tuple(reason_codes),
+                rule_id="stay_deterministic",
+                metadata={
+                    "conflict_count": len(conflicts),
+                    "high_risk": high_risk,
+                    "resolver_response_present": resolver_response is not None,
+                    "planner_response_present": planner_response is not None,
+                },
             )
         except Exception as exc:  # noqa: BLE001 - policy decisions must remain failure-safe
+            _LOGGER.exception("Escalation policy decision fell back to blocked mode.")
             return _decision(
                 action=EscalationAction.block_for_user_confirmation,
                 preferred_source=None,
                 summary="Escalation policy fell back to a blocked decision after an internal error.",
                 reason_codes=("policy_exception",),
-                metadata={"exception_type": type(exc).__name__, "error_message": str(exc)},
+                rule_id="policy_exception_fallback",
+                metadata={
+                    "exception_type": type(exc).__name__,
+                    "error_message": str(exc),
+                    "exception_stage": "decide",
+                },
             )
+
+    def _missing_binding_decision(
+        self,
+        *,
+        deterministic_binding: SharedCandidateOntologyBinding | None,
+        policy: EscalationPolicy,
+        reason_codes: list[str],
+    ) -> EscalationDecision | None:
+        if deterministic_binding is not None:
+            return None
+        reason_codes.append("deterministic_binding_missing")
+        if policy.block_on_incomplete_contracts:
+            return _decision(
+                action=EscalationAction.block_for_user_confirmation,
+                preferred_source=None,
+                summary="Deterministic candidate context is missing, so arbitration stays blocked.",
+                reason_codes=reason_codes,
+                rule_id="missing_binding_block",
+            )
+        return _decision(
+            action=EscalationAction.ask_local_resolver,
+            preferred_source=ArbitrationSource.local_visual_resolver,
+            summary="Deterministic candidate context is missing, so the next safe step is a local resolver request.",
+            reason_codes=reason_codes,
+            rule_id="missing_binding_local_resolver",
+        )
+
+    def _incomplete_binding_decision(
+        self,
+        *,
+        deterministic_binding: SharedCandidateOntologyBinding | None,
+        policy: EscalationPolicy,
+        reason_codes: list[str],
+    ) -> EscalationDecision | None:
+        if (
+            deterministic_binding is None
+            or deterministic_binding.completeness_status == "available"
+        ):
+            return None
+        reason_codes.append("deterministic_binding_partial")
+        if not policy.block_on_incomplete_contracts:
+            return None
+        return _decision(
+            action=EscalationAction.block_for_user_confirmation,
+            preferred_source=None,
+            summary="Deterministic candidate metadata is incomplete, so arbitration stays blocked.",
+            reason_codes=reason_codes,
+            rule_id="partial_binding_block",
+        )
+
+    def _source_conflict_decision(
+        self,
+        *,
+        deterministic_binding: SharedCandidateOntologyBinding | None,
+        policy: EscalationPolicy,
+        reason_codes: list[str],
+    ) -> EscalationDecision | None:
+        if deterministic_binding is None or not deterministic_binding.source_conflict_present:
+            return None
+        reason_codes.append("deterministic_source_conflict")
+        if not policy.cloud_planner_for_source_conflict:
+            return None
+        return _decision(
+            action=EscalationAction.escalate_to_cloud_planner,
+            preferred_source=ArbitrationSource.cloud_planner,
+            summary="Deterministic source conflict requires cloud-planner arbitration scaffolding.",
+            reason_codes=reason_codes,
+            rule_id="source_conflict_cloud_planner",
+        )
+
+    def _local_resolver_needed_decision(
+        self,
+        *,
+        deterministic_binding: SharedCandidateOntologyBinding | None,
+        policy: EscalationPolicy,
+        high_risk: bool,
+        reason_codes: list[str],
+    ) -> EscalationDecision | None:
+        if deterministic_binding is None:
+            return None
+        if deterministic_binding.requires_local_resolver:
+            reason_codes.append("deterministic_requires_local_resolver")
+            return _decision(
+                action=EscalationAction.ask_local_resolver,
+                preferred_source=ArbitrationSource.local_visual_resolver,
+                summary="Candidate metadata explicitly requires local visual resolution.",
+                reason_codes=reason_codes,
+                rule_id="requires_local_resolver",
+            )
+        if deterministic_binding.disambiguation_needed:
+            reason_codes.append("deterministic_disambiguation_needed")
+            return _decision(
+                action=EscalationAction.ask_local_resolver,
+                preferred_source=ArbitrationSource.local_visual_resolver,
+                summary="Candidate ambiguity requires local visual resolution before continuing.",
+                reason_codes=reason_codes,
+                rule_id="disambiguation_needed",
+            )
+        if high_risk and policy.local_resolver_for_high_risk:
+            reason_codes.append("high_selection_risk")
+            return _decision(
+                action=EscalationAction.ask_local_resolver,
+                preferred_source=ArbitrationSource.local_visual_resolver,
+                summary="High-risk candidate selection should be checked by the local resolver first.",
+                reason_codes=reason_codes,
+                rule_id="high_risk_local_resolver",
+            )
+        if (
+            deterministic_binding.confidence is not None
+            and deterministic_binding.confidence < policy.deterministic_confidence_threshold
+        ):
+            reason_codes.append("deterministic_confidence_below_threshold")
+            return _decision(
+                action=EscalationAction.ask_local_resolver,
+                preferred_source=ArbitrationSource.local_visual_resolver,
+                summary="Deterministic confidence is below threshold, so local resolver escalation is preferred.",
+                reason_codes=reason_codes,
+                rule_id="low_confidence_local_resolver",
+            )
+        return None
+
+    def _conflict_decision(
+        self,
+        *,
+        conflicts: tuple[ArbitrationConflict, ...],
+        resolver_response: ResolverResponseContract | None,
+        planner_response: PlannerResponseContract | None,
+        policy: EscalationPolicy,
+        high_risk: bool,
+        reason_codes: list[str],
+    ) -> EscalationDecision | None:
+        if not conflicts:
+            return None
+        reason_codes.extend(
+            sorted(dict.fromkeys(f"conflict:{conflict.kind.value}" for conflict in conflicts))
+        )
+        if high_risk and policy.require_user_confirmation_for_conflicting_high_risk:
+            return _decision(
+                action=EscalationAction.block_for_user_confirmation,
+                preferred_source=None,
+                summary="High-risk conflicting signals require user confirmation scaffolding.",
+                reason_codes=reason_codes,
+                rule_id="conflicting_high_risk_block",
+            )
+        if not policy.block_on_unresolved_disagreement:
+            return None
+        if resolver_response is None:
+            return _decision(
+                action=EscalationAction.ask_local_resolver,
+                preferred_source=ArbitrationSource.local_visual_resolver,
+                summary="Conflicting signals require a local resolver arbitration step.",
+                reason_codes=reason_codes,
+                rule_id="conflict_local_resolver",
+            )
+        if planner_response is None:
+            return _decision(
+                action=EscalationAction.escalate_to_cloud_planner,
+                preferred_source=ArbitrationSource.cloud_planner,
+                summary="Conflicting deterministic and local signals require cloud-planner escalation scaffolding.",
+                reason_codes=reason_codes,
+                rule_id="conflict_cloud_planner",
+            )
+        return _decision(
+            action=EscalationAction.block_for_user_confirmation,
+            preferred_source=None,
+            summary="Conflicting deterministic, local, and planner signals remain blocked pending user confirmation.",
+            reason_codes=reason_codes,
+            rule_id="conflict_user_confirmation",
+        )
 
 
 class ObserveOnlyAiArbitrator:
@@ -385,6 +500,11 @@ class ObserveOnlyAiArbitrator:
     ) -> ArbitrationEvaluationResult:
         try:
             active_policy = EscalationPolicy() if policy is None else policy
+            source_bindings = _source_bindings(
+                deterministic_binding=deterministic_binding,
+                resolver_response=resolver_response,
+                planner_response=planner_response,
+            )
             conflicts = self._collect_conflicts(
                 deterministic_binding=deterministic_binding,
                 resolver_response=resolver_response,
@@ -429,21 +549,28 @@ class ObserveOnlyAiArbitrator:
                     "conflict_kinds": tuple(conflict.kind.value for conflict in conflicts),
                     "conflict_count": len(conflicts),
                     "reason_codes": escalation_decision.reason_codes,
+                    "selected_rule_id": escalation_decision.metadata.get("selected_rule_id"),
                     "preferred_source": (
                         None
                         if escalation_decision.preferred_source is None
                         else escalation_decision.preferred_source.value
+                    ),
+                    "evaluated_sources": tuple(source.value for source in source_bindings),
+                    "evaluated_source_pairs": tuple(
+                        f"{left_source.value}->{right_source.value}"
+                        for left_source, right_source in _source_pairs(source_bindings)
                     ),
                     "observe_only": True,
                     "non_executing": True,
                 },
             )
         except Exception as exc:  # noqa: BLE001 - arbitration must remain failure-safe
+            _LOGGER.exception("AI arbitration failed and returned a failure-safe result.")
             return ArbitrationEvaluationResult.failure(
                 arbitrator_name=self.arbitrator_name,
                 error_code="ai_arbitration_exception",
                 error_message=str(exc),
-                details={"exception_type": type(exc).__name__},
+                details={"exception_type": type(exc).__name__, "exception_stage": "arbitrate"},
             )
         return ArbitrationEvaluationResult.ok(
             arbitrator_name=self.arbitrator_name,
@@ -452,6 +579,7 @@ class ObserveOnlyAiArbitrator:
                 "status": outcome.status.value,
                 "signal_status": outcome.signal_status.value,
                 "selected_source": None if outcome.selected_source is None else outcome.selected_source.value,
+                "selected_rule_id": outcome.escalation_decision.metadata.get("selected_rule_id"),
             },
         )
 
@@ -510,74 +638,41 @@ class ObserveOnlyAiArbitrator:
                 )
             )
 
-        conflicts.extend(
-            _candidate_pair_conflicts(
-                left_source=ArbitrationSource.deterministic_pipeline,
-                left_binding=deterministic_binding,
-                right_source=ArbitrationSource.local_visual_resolver,
-                right_binding=None if resolver_response is None else resolver_response.candidate_binding,
-            )
+        source_bindings = _source_bindings(
+            deterministic_binding=deterministic_binding,
+            resolver_response=resolver_response,
+            planner_response=planner_response,
         )
-        conflicts.extend(
-            _candidate_pair_conflicts(
-                left_source=ArbitrationSource.deterministic_pipeline,
-                left_binding=deterministic_binding,
-                right_source=ArbitrationSource.cloud_planner,
-                right_binding=None if planner_response is None else planner_response.candidate_binding,
+        for left_source, right_source in _source_pairs(source_bindings):
+            conflicts.extend(
+                _candidate_pair_conflicts(
+                    left_source=left_source,
+                    left_binding=source_bindings[left_source],
+                    right_source=right_source,
+                    right_binding=source_bindings[right_source],
+                )
             )
-        )
-        conflicts.extend(
-            _candidate_pair_conflicts(
-                left_source=ArbitrationSource.local_visual_resolver,
-                left_binding=None if resolver_response is None else resolver_response.candidate_binding,
-                right_source=ArbitrationSource.cloud_planner,
-                right_binding=None if planner_response is None else planner_response.candidate_binding,
-            )
-        )
 
-        if resolver_response is not None and planner_response is not None:
-            if (
-                resolver_response.target_label is not None
-                and planner_response.target_label is not None
-                and resolver_response.target_label is not planner_response.target_label
-            ):
-                conflicts.append(
-                    _conflict(
-                        kind=ArbitrationConflictKind.target_label_mismatch,
-                        summary="Resolver and planner selected different target labels.",
-                        sources=(
-                            ArbitrationSource.local_visual_resolver,
-                            ArbitrationSource.cloud_planner,
-                        ),
-                        candidate_ids=tuple(
-                            dict.fromkeys(
-                                _candidate_ids_from_response(resolver_response)
-                                + _candidate_ids_from_response(planner_response)
-                            )
-                        ),
-                    )
-                )
-            if (
-                resolver_response.action_type is not None
-                and planner_response.action_type is not None
-                and resolver_response.action_type is not planner_response.action_type
-            ):
-                conflicts.append(
-                    _conflict(
-                        kind=ArbitrationConflictKind.action_mismatch,
-                        summary="Resolver and planner selected different action types.",
-                        sources=(
-                            ArbitrationSource.local_visual_resolver,
-                            ArbitrationSource.cloud_planner,
-                        ),
-                        candidate_ids=tuple(
-                            dict.fromkeys(
-                                _candidate_ids_from_response(resolver_response)
-                                + _candidate_ids_from_response(planner_response)
-                            )
-                        ),
-                    )
-                )
+        response_entries = _response_entries(
+            resolver_response=resolver_response,
+            planner_response=planner_response,
+        )
+        conflicts.extend(
+            _response_attribute_conflicts(
+                response_entries,
+                attribute_name="target_label",
+                conflict_kind=ArbitrationConflictKind.target_label_mismatch,
+                summary="AI sources selected different target labels.",
+            )
+        )
+        conflicts.extend(
+            _response_attribute_conflicts(
+                response_entries,
+                attribute_name="action_type",
+                conflict_kind=ArbitrationConflictKind.action_mismatch,
+                summary="AI sources selected different action types.",
+            )
+        )
 
         conflicts.extend(
             _confidence_conflicts(
@@ -677,6 +772,7 @@ def _decision(
     preferred_source: ArbitrationSource | None,
     summary: str,
     reason_codes: tuple[str, ...] | list[str],
+    rule_id: str,
     metadata: Mapping[str, object] | None = None,
 ) -> EscalationDecision:
     return EscalationDecision(
@@ -684,7 +780,10 @@ def _decision(
         summary=summary,
         preferred_source=preferred_source,
         reason_codes=tuple(dict.fromkeys(reason_codes)),
-        metadata={} if metadata is None else metadata,
+        metadata={
+            "selected_rule_id": rule_id,
+            **({} if metadata is None else dict(metadata)),
+        },
     )
 
 
@@ -736,6 +835,45 @@ def _candidate_pair_conflicts(
     return tuple(conflicts)
 
 
+def _response_attribute_conflicts(
+    response_entries: Mapping[
+        ArbitrationSource,
+        PlannerResponseContract | ResolverResponseContract,
+    ],
+    *,
+    attribute_name: str,
+    conflict_kind: ArbitrationConflictKind,
+    summary: str,
+) -> tuple[ArbitrationConflict, ...]:
+    conflicts: list[ArbitrationConflict] = []
+    for left_source, right_source in _source_pairs(response_entries):
+        left_response = response_entries[left_source]
+        right_response = response_entries[right_source]
+        left_value = getattr(left_response, attribute_name)
+        right_value = getattr(right_response, attribute_name)
+        if left_value is None or right_value is None or left_value is right_value:
+            continue
+        conflicts.append(
+            _conflict(
+                kind=conflict_kind,
+                summary=summary,
+                sources=(left_source, right_source),
+                candidate_ids=tuple(
+                    dict.fromkeys(
+                        _candidate_ids_from_response(left_response)
+                        + _candidate_ids_from_response(right_response)
+                    )
+                ),
+                metadata={
+                    "attribute_name": attribute_name,
+                    "left_value": getattr(left_value, "value", left_value),
+                    "right_value": getattr(right_value, "value", right_value),
+                },
+            )
+        )
+    return tuple(conflicts)
+
+
 def _confidence_conflicts(
     *,
     deterministic_binding: SharedCandidateOntologyBinding | None,
@@ -743,49 +881,15 @@ def _confidence_conflicts(
     planner_response: PlannerResponseContract | None,
     tolerance: float,
 ) -> tuple[ArbitrationConflict, ...]:
-    pairs: list[tuple[ArbitrationSource, float | None, str | None, ArbitrationSource, float | None, str | None]] = []
-    if deterministic_binding is not None:
-        pairs.append(
-            (
-                ArbitrationSource.deterministic_pipeline,
-                deterministic_binding.confidence,
-                deterministic_binding.candidate_id,
-                ArbitrationSource.local_visual_resolver,
-                None if resolver_response is None else resolver_response.confidence,
-                None
-                if resolver_response is None or resolver_response.candidate_binding is None
-                else resolver_response.candidate_binding.candidate_id,
-            )
-        )
-        pairs.append(
-            (
-                ArbitrationSource.deterministic_pipeline,
-                deterministic_binding.confidence,
-                deterministic_binding.candidate_id,
-                ArbitrationSource.cloud_planner,
-                None if planner_response is None else planner_response.confidence,
-                None
-                if planner_response is None or planner_response.candidate_binding is None
-                else planner_response.candidate_binding.candidate_id,
-            )
-        )
-    pairs.append(
-        (
-            ArbitrationSource.local_visual_resolver,
-            None if resolver_response is None else resolver_response.confidence,
-            None
-            if resolver_response is None or resolver_response.candidate_binding is None
-            else resolver_response.candidate_binding.candidate_id,
-            ArbitrationSource.cloud_planner,
-            None if planner_response is None else planner_response.confidence,
-            None
-            if planner_response is None or planner_response.candidate_binding is None
-            else planner_response.candidate_binding.candidate_id,
-        )
+    confidence_entries = _confidence_entries(
+        deterministic_binding=deterministic_binding,
+        resolver_response=resolver_response,
+        planner_response=planner_response,
     )
-
     conflicts: list[ArbitrationConflict] = []
-    for left_source, left_confidence, left_candidate_id, right_source, right_confidence, right_candidate_id in pairs:
+    for left_source, right_source in _source_pairs(confidence_entries):
+        left_confidence, left_candidate_id = confidence_entries[left_source]
+        right_confidence, right_candidate_id = confidence_entries[right_source]
         if (
             left_confidence is None
             or right_confidence is None
@@ -810,6 +914,85 @@ def _confidence_conflicts(
             )
         )
     return tuple(conflicts)
+
+
+def _source_bindings(
+    *,
+    deterministic_binding: SharedCandidateOntologyBinding | None,
+    resolver_response: ResolverResponseContract | None,
+    planner_response: PlannerResponseContract | None,
+) -> Mapping[ArbitrationSource, SharedCandidateOntologyBinding]:
+    bindings: dict[ArbitrationSource, SharedCandidateOntologyBinding] = {}
+    if deterministic_binding is not None:
+        bindings[ArbitrationSource.deterministic_pipeline] = deterministic_binding
+    if resolver_response is not None and resolver_response.candidate_binding is not None:
+        bindings[ArbitrationSource.local_visual_resolver] = resolver_response.candidate_binding
+    if planner_response is not None and planner_response.candidate_binding is not None:
+        bindings[ArbitrationSource.cloud_planner] = planner_response.candidate_binding
+    return bindings
+
+
+def _response_entries(
+    *,
+    resolver_response: ResolverResponseContract | None,
+    planner_response: PlannerResponseContract | None,
+) -> Mapping[ArbitrationSource, PlannerResponseContract | ResolverResponseContract]:
+    entries: dict[ArbitrationSource, PlannerResponseContract | ResolverResponseContract] = {}
+    if resolver_response is not None:
+        entries[ArbitrationSource.local_visual_resolver] = resolver_response
+    if planner_response is not None:
+        entries[ArbitrationSource.cloud_planner] = planner_response
+    return entries
+
+
+def _confidence_entries(
+    *,
+    deterministic_binding: SharedCandidateOntologyBinding | None,
+    resolver_response: ResolverResponseContract | None,
+    planner_response: PlannerResponseContract | None,
+) -> Mapping[ArbitrationSource, tuple[float | None, str | None]]:
+    entries: dict[ArbitrationSource, tuple[float | None, str | None]] = {}
+    if deterministic_binding is not None:
+        entries[ArbitrationSource.deterministic_pipeline] = (
+            deterministic_binding.confidence,
+            deterministic_binding.candidate_id,
+        )
+    if resolver_response is not None:
+        entries[ArbitrationSource.local_visual_resolver] = (
+            resolver_response.confidence,
+            None
+            if resolver_response.candidate_binding is None
+            else resolver_response.candidate_binding.candidate_id,
+        )
+    if planner_response is not None:
+        entries[ArbitrationSource.cloud_planner] = (
+            planner_response.confidence,
+            None
+            if planner_response.candidate_binding is None
+            else planner_response.candidate_binding.candidate_id,
+        )
+    return entries
+
+
+def _source_pairs(
+    values: Mapping[ArbitrationSource, object],
+) -> tuple[tuple[ArbitrationSource, ArbitrationSource], ...]:
+    ordered_sources = tuple(_ordered_sources(values))
+    return tuple(combinations(ordered_sources, 2))
+
+
+def _ordered_sources(
+    values: Mapping[ArbitrationSource, object],
+) -> tuple[ArbitrationSource, ...]:
+    ordered: list[ArbitrationSource] = []
+    seen: set[ArbitrationSource] = set()
+    for source in ArbitrationSource:
+        if source in values:
+            ordered.append(source)
+            seen.add(source)
+    extras = sorted((source for source in values if source not in seen), key=lambda item: item.value)
+    ordered.extend(extras)
+    return tuple(ordered)
 
 
 def _candidate_ids_from_response(

@@ -6,6 +6,7 @@ from test_ai_boundary_contracts import _boundary_context, _center_point
 
 from universal_visual_os_agent.ai_architecture import (
     AiArchitectureSignalStatus,
+    ArbitrationConflict,
     ArbitrationConflictKind,
     ArbitrationSource,
     EscalationAction,
@@ -35,6 +36,21 @@ class _ExplodingAiArbitrator(ObserveOnlyAiArbitrator):
     def _collect_conflicts(self, *, deterministic_binding, resolver_response, planner_response, policy):
         del deterministic_binding, resolver_response, planner_response, policy
         raise RuntimeError("ai arbitrator exploded")
+
+
+class _ExplodingEscalationPolicyDecider(ObserveOnlyEscalationPolicyDecider):
+    def _conflict_decision(
+        self,
+        *,
+        conflicts,
+        resolver_response,
+        planner_response,
+        policy,
+        high_risk,
+        reason_codes,
+    ):
+        del conflicts, resolver_response, planner_response, policy, high_risk, reason_codes
+        raise RuntimeError("escalation policy decider exploded")
 
 
 def test_shared_ontology_binder_maps_exposed_candidate_consistently() -> None:
@@ -237,9 +253,13 @@ def test_escalation_policy_and_arbitration_remain_consistent() -> None:
 
     assert decision.action is EscalationAction.ask_local_resolver
     assert decision.preferred_source is ArbitrationSource.local_visual_resolver
+    assert decision.metadata["selected_rule_id"] == "requires_local_resolver"
     assert arbitration.success is True
     assert arbitration.outcome is not None
     assert arbitration.outcome.escalation_decision.action is EscalationAction.ask_local_resolver
+    assert arbitration.outcome.escalation_decision.metadata["selected_rule_id"] == "requires_local_resolver"
+    assert arbitration.outcome.metadata["selected_rule_id"] == "requires_local_resolver"
+    assert arbitration.details["selected_rule_id"] == "requires_local_resolver"
     assert arbitration.outcome.status.value in {"escalated", "partial"}
 
 
@@ -300,10 +320,9 @@ def test_arbitration_detects_conflicts_and_escalates_to_cloud_safely() -> None:
 
     assert outcome_result.success is True
     assert outcome_result.outcome is not None
-    assert outcome_result.outcome.escalation_decision.action in {
-        EscalationAction.escalate_to_cloud_planner,
-        EscalationAction.block_for_user_confirmation,
-    }
+    assert outcome_result.outcome.escalation_decision.action is EscalationAction.escalate_to_cloud_planner
+    assert outcome_result.outcome.selected_source is ArbitrationSource.cloud_planner
+    assert outcome_result.outcome.metadata["selected_rule_id"] == "source_conflict_cloud_planner"
     assert any(
         conflict.kind in {
             ArbitrationConflictKind.candidate_reference_mismatch,
@@ -312,6 +331,39 @@ def test_arbitration_detects_conflicts_and_escalates_to_cloud_safely() -> None:
         }
         for conflict in outcome_result.outcome.conflicts
     )
+    assert outcome_result.outcome.metadata["evaluated_source_pairs"] == (
+        "deterministic_pipeline->local_visual_resolver",
+        "deterministic_pipeline->cloud_planner",
+        "local_visual_resolver->cloud_planner",
+    )
+    assert outcome_result.details["selected_rule_id"] == "source_conflict_cloud_planner"
+
+
+def test_escalation_policy_decider_preserves_exception_visibility_in_failsafe_mode() -> None:
+    _snapshot, exposure_view, _candidate = _boundary_context()
+    binding_result = ObserveOnlySharedOntologyBinder().bind_exposed_candidate(exposure_view.candidates[0])
+    assert binding_result.success is True
+    assert binding_result.binding is not None
+
+    decision = _ExplodingEscalationPolicyDecider().decide(
+        deterministic_binding=binding_result.binding,
+        conflicts=(
+            ArbitrationConflict(
+                kind=ArbitrationConflictKind.confidence_disagreement,
+                summary="Exercise policy exception fallback after conflict handling begins.",
+                sources=(
+                    ArbitrationSource.deterministic_pipeline,
+                    ArbitrationSource.local_visual_resolver,
+                ),
+                candidate_ids=(binding_result.binding.candidate_id,),
+            ),
+        ),
+    )
+
+    assert decision.action is EscalationAction.block_for_user_confirmation
+    assert decision.metadata["selected_rule_id"] == "policy_exception_fallback"
+    assert decision.metadata["exception_type"] == "RuntimeError"
+    assert decision.metadata["exception_stage"] == "decide"
 
 
 def test_ai_architecture_does_not_propagate_unhandled_exceptions() -> None:
