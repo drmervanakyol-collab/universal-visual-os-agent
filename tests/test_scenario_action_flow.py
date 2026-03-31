@@ -40,6 +40,7 @@ from universal_visual_os_agent.semantics import (
     SemanticCandidateClass,
 )
 from universal_visual_os_agent.semantics.semantic_delta import SemanticDeltaCategory
+from universal_visual_os_agent.recovery.models import RecoveryHandlingDisposition
 from universal_visual_os_agent.verification.models import (
     ExpectedSemanticChange,
     ExpectedSemanticOutcome,
@@ -406,8 +407,18 @@ def test_scenario_action_flow_supports_verify_after_action_simulation() -> None:
     assert step_run.action_disposition is ScenarioActionDisposition.real_click_eligible
     assert step_run.safe_click_execution is not None
     assert step_run.safe_click_execution.status.value == "real_click_allowed"
+    assert step_run.recovery_plan is not None
+    assert (
+        step_run.recovery_plan.disposition
+        is RecoveryHandlingDisposition.await_user_confirmation
+    )
+    assert step_run.recovery_plan.awaiting_user_confirmation is True
     assert step_run.verification_result is not None
     assert step_run.verification_result.success is True
+    assert result.scenario_run.metadata["awaiting_user_confirmation_step_ids"] == (
+        "confirm-step",
+    )
+    assert step_run.metadata["awaiting_user_confirmation"] is True
 
 
 def test_scenario_action_flow_executes_only_the_existing_narrow_click_prototype() -> None:

@@ -22,6 +22,8 @@ from universal_visual_os_agent.config import AgentMode, RunConfig
 from universal_visual_os_agent.geometry.models import VirtualDesktopMetrics
 from universal_visual_os_agent.perception.interfaces import CaptureProvider
 from universal_visual_os_agent.policy import PolicyEvaluationContext, RuleBasedPolicyEngine
+from universal_visual_os_agent.recovery.handling import ObserveOnlyRecoveryEscalationHitlPlanner
+from universal_visual_os_agent.recovery.models import RecoveryFailureOrigin, RecoveryHandlingPlan
 from universal_visual_os_agent.scenarios.definition import SafetyFirstScenarioDefinitionBuilder
 from universal_visual_os_agent.scenarios.loop import (
     ObserveUnderstandVerifyScenarioRunner,
@@ -79,6 +81,7 @@ class _ActionResolution:
     scaffold_view: ActionIntentScaffoldView | None = None
     dry_run_evaluation: DryRunActionEvaluation | None = None
     safe_click_execution: SafeClickExecution | None = None
+    recovery_plan: RecoveryHandlingPlan | None = None
     final_stage: ScenarioActionStepStage | None = None
     details: Mapping[str, object] = field(default_factory=dict)
 
@@ -105,6 +108,7 @@ class ObserveActVerifyScenarioRunner(ObserveUnderstandVerifyScenarioRunner):
         action_intent_scaffolder: ObserveOnlyActionIntentScaffolder | None = None,
         dry_run_action_engine: DryRunActionEngine | None = None,
         safe_click_executor: SafeClickExecutor | None = None,
+        recovery_planner: ObserveOnlyRecoveryEscalationHitlPlanner | None = None,
     ) -> None:
         super().__init__(
             capture_provider=capture_provider,
@@ -133,6 +137,11 @@ class ObserveActVerifyScenarioRunner(ObserveUnderstandVerifyScenarioRunner):
             SafeClickPrototypeExecutor(policy_engine=RuleBasedPolicyEngine())
             if safe_click_executor is None
             else safe_click_executor
+        )
+        self._recovery_planner = (
+            ObserveOnlyRecoveryEscalationHitlPlanner()
+            if recovery_planner is None
+            else recovery_planner
         )
 
     def run(
@@ -322,6 +331,12 @@ class ObserveActVerifyScenarioRunner(ObserveUnderstandVerifyScenarioRunner):
                     if step_run.state_machine_trace is not None
                     and step_run.state_machine_trace.current_state
                     is ScenarioFlowState.recovery_needed
+                ),
+                "awaiting_user_confirmation_step_ids": tuple(
+                    step_run.step_id
+                    for step_run in step_runs
+                    if step_run.recovery_plan is not None
+                    and step_run.recovery_plan.awaiting_user_confirmation
                 ),
             },
         )
@@ -517,6 +532,7 @@ class ObserveActVerifyScenarioRunner(ObserveUnderstandVerifyScenarioRunner):
                 scaffold_view=action_resolution.scaffold_view,
                 dry_run_evaluation=action_resolution.dry_run_evaluation,
                 safe_click_execution=action_resolution.safe_click_execution,
+                recovery_plan=action_resolution.recovery_plan,
                 matched_candidate_ids=understanding.matched_candidate_ids,
                 selected_candidate_id=action_resolution.selected_candidate_id,
                 selected_intent_id=(
@@ -572,6 +588,7 @@ class ObserveActVerifyScenarioRunner(ObserveUnderstandVerifyScenarioRunner):
                 scaffold_view=action_resolution.scaffold_view,
                 dry_run_evaluation=action_resolution.dry_run_evaluation,
                 safe_click_execution=action_resolution.safe_click_execution,
+                recovery_plan=action_resolution.recovery_plan,
                 matched_candidate_ids=understanding.matched_candidate_ids,
                 selected_candidate_id=action_resolution.selected_candidate_id,
                 selected_intent_id=(
@@ -663,6 +680,7 @@ class ObserveActVerifyScenarioRunner(ObserveUnderstandVerifyScenarioRunner):
                 scaffold_view=action_resolution.scaffold_view,
                 dry_run_evaluation=action_resolution.dry_run_evaluation,
                 safe_click_execution=action_resolution.safe_click_execution,
+                recovery_plan=action_resolution.recovery_plan,
                 matched_candidate_ids=understanding.matched_candidate_ids,
                 selected_candidate_id=action_resolution.selected_candidate_id,
                 selected_intent_id=(
@@ -743,6 +761,7 @@ class ObserveActVerifyScenarioRunner(ObserveUnderstandVerifyScenarioRunner):
             "dry_run_evaluation": action_resolution.dry_run_evaluation,
             "safe_click_execution": action_resolution.safe_click_execution,
             "verification_result": verification_result,
+            "recovery_plan": action_resolution.recovery_plan,
             "matched_candidate_ids": understanding.matched_candidate_ids,
             "selected_candidate_id": action_resolution.selected_candidate_id,
             "selected_intent_id": (
@@ -1076,6 +1095,7 @@ class ObserveActVerifyScenarioRunner(ObserveUnderstandVerifyScenarioRunner):
             dry_run_evaluation=dry_run_evaluation,
             execute=execute,
             safe_click_executor=self._safe_click_executor,
+            recovery_planner=self._recovery_planner,
             state_machine=state_machine,
         )
 
@@ -1094,6 +1114,7 @@ class ObserveActVerifyScenarioRunner(ObserveUnderstandVerifyScenarioRunner):
         dry_run_evaluation: DryRunActionEvaluation | None = None,
         safe_click_execution: SafeClickExecution | None = None,
         verification_result: VerificationResult | None = None,
+        recovery_plan: RecoveryHandlingPlan | None = None,
         matched_candidate_ids: tuple[str, ...] = (),
         selected_candidate_id: str | None = None,
         selected_intent_id: str | None = None,
@@ -1119,6 +1140,7 @@ class ObserveActVerifyScenarioRunner(ObserveUnderstandVerifyScenarioRunner):
             dry_run_evaluation=dry_run_evaluation,
             safe_click_execution=safe_click_execution,
             verification_result=verification_result,
+            recovery_plan=recovery_plan,
             matched_candidate_ids=matched_candidate_ids,
             selected_candidate_id=selected_candidate_id,
             selected_intent_id=selected_intent_id,
@@ -1140,6 +1162,15 @@ class ObserveActVerifyScenarioRunner(ObserveUnderstandVerifyScenarioRunner):
                 "stage_history": tuple(stage.value for stage in stage_history),
                 "execution_eligibility": step.execution_eligibility.value,
                 "action_disposition": action_disposition.value,
+                "recovery_plan_disposition": (
+                    None if recovery_plan is None else recovery_plan.disposition.value
+                ),
+                "recovery_plan_retryability": (
+                    None if recovery_plan is None else recovery_plan.retryability.value
+                ),
+                "awaiting_user_confirmation": (
+                    False if recovery_plan is None else recovery_plan.awaiting_user_confirmation
+                ),
                 "matched_candidate_ids": matched_candidate_ids,
                 "selected_candidate_id": selected_candidate_id,
                 "selected_intent_id": selected_intent_id,
@@ -1166,6 +1197,7 @@ def _resolve_safe_click_result(
     dry_run_evaluation: DryRunActionEvaluation,
     execute: bool,
     safe_click_executor: SafeClickExecutor,
+    recovery_planner: ObserveOnlyRecoveryEscalationHitlPlanner,
     state_machine: InstrumentedScenarioStateMachine,
 ) -> _ActionResolution:
     if not safe_click_result.success or safe_click_result.execution is None:
@@ -1242,7 +1274,21 @@ def _resolve_safe_click_result(
                 "blocking_reasons": safe_click_execution.blocking_reasons,
             },
         )
+    recovery_plan = None
     if safe_click_execution.status is SafeClickPrototypeStatus.real_click_allowed:
+        recovery_plan_result = recovery_planner.plan_for_human_confirmation(
+            summary=(
+                "Real click passed all current safety gates, but execution still requires explicit operator confirmation."
+            ),
+            failure_origin=RecoveryFailureOrigin.scenario_action_flow,
+            metadata={
+                "safe_click_status": safe_click_execution.status.value,
+                "execute_requested": execute,
+                "selected_candidate_id": selected_candidate_id,
+            },
+        )
+        if recovery_plan_result.success:
+            recovery_plan = recovery_plan_result.recovery_plan
         state_machine.transition(
             ScenarioFlowState.execution_allowed,
             confidence=selected_intent.candidate_score,
@@ -1250,6 +1296,7 @@ def _resolve_safe_click_result(
             metadata={
                 "safe_click_status": safe_click_execution.status.value,
                 "execute_requested": execute,
+                "awaiting_user_confirmation": recovery_plan is not None,
             },
         )
     elif safe_click_execution.status is SafeClickPrototypeStatus.real_click_executed:
@@ -1284,12 +1331,14 @@ def _resolve_safe_click_result(
         scaffold_view=scaffold_view,
         dry_run_evaluation=dry_run_evaluation,
         safe_click_execution=safe_click_execution,
+        recovery_plan=recovery_plan,
         details={
             "action_stage": "safe_click_resolution",
             "safe_click_status": safe_click_execution.status.value,
             "blocked_gate_ids": safe_click_execution.blocked_gate_ids,
             "blocking_reasons": safe_click_execution.blocking_reasons,
             "execute_requested": execute,
+            "awaiting_user_confirmation": recovery_plan is not None,
         },
     )
 

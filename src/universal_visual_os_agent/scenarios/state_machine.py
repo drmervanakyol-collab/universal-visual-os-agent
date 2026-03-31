@@ -8,6 +8,11 @@ from enum import StrEnum
 from time import perf_counter
 from typing import Mapping
 
+from universal_visual_os_agent.recovery.models import (
+    RecoveryHandlingDisposition,
+    RecoveryHandlingPlan,
+)
+
 
 class ScenarioFlowState(StrEnum):
     """Explicit scenario/action flow states for the safety-first FSM."""
@@ -23,6 +28,7 @@ class ScenarioFlowState(StrEnum):
     verification_passed = "verification_passed"
     verification_failed = "verification_failed"
     blocked = "blocked"
+    awaiting_user_confirmation = "awaiting_user_confirmation"
     recovery_needed = "recovery_needed"
     aborted = "aborted"
 
@@ -40,6 +46,7 @@ _ALLOWED_TRANSITIONS: Mapping[ScenarioFlowState | None, frozenset[ScenarioFlowSt
         {
             ScenarioFlowState.understood,
             ScenarioFlowState.blocked,
+            ScenarioFlowState.awaiting_user_confirmation,
             ScenarioFlowState.recovery_needed,
             ScenarioFlowState.aborted,
         }
@@ -50,6 +57,7 @@ _ALLOWED_TRANSITIONS: Mapping[ScenarioFlowState | None, frozenset[ScenarioFlowSt
             ScenarioFlowState.verification_passed,
             ScenarioFlowState.verification_failed,
             ScenarioFlowState.blocked,
+            ScenarioFlowState.awaiting_user_confirmation,
             ScenarioFlowState.recovery_needed,
             ScenarioFlowState.aborted,
         }
@@ -58,6 +66,7 @@ _ALLOWED_TRANSITIONS: Mapping[ScenarioFlowState | None, frozenset[ScenarioFlowSt
         {
             ScenarioFlowState.intent_built,
             ScenarioFlowState.blocked,
+            ScenarioFlowState.awaiting_user_confirmation,
             ScenarioFlowState.recovery_needed,
             ScenarioFlowState.aborted,
         }
@@ -66,6 +75,7 @@ _ALLOWED_TRANSITIONS: Mapping[ScenarioFlowState | None, frozenset[ScenarioFlowSt
         {
             ScenarioFlowState.dry_run_passed,
             ScenarioFlowState.blocked,
+            ScenarioFlowState.awaiting_user_confirmation,
             ScenarioFlowState.recovery_needed,
             ScenarioFlowState.aborted,
         }
@@ -77,6 +87,7 @@ _ALLOWED_TRANSITIONS: Mapping[ScenarioFlowState | None, frozenset[ScenarioFlowSt
             ScenarioFlowState.verification_passed,
             ScenarioFlowState.verification_failed,
             ScenarioFlowState.blocked,
+            ScenarioFlowState.awaiting_user_confirmation,
             ScenarioFlowState.recovery_needed,
             ScenarioFlowState.aborted,
         }
@@ -88,6 +99,7 @@ _ALLOWED_TRANSITIONS: Mapping[ScenarioFlowState | None, frozenset[ScenarioFlowSt
             ScenarioFlowState.verification_passed,
             ScenarioFlowState.verification_failed,
             ScenarioFlowState.blocked,
+            ScenarioFlowState.awaiting_user_confirmation,
             ScenarioFlowState.recovery_needed,
             ScenarioFlowState.aborted,
         }
@@ -98,6 +110,7 @@ _ALLOWED_TRANSITIONS: Mapping[ScenarioFlowState | None, frozenset[ScenarioFlowSt
             ScenarioFlowState.verification_passed,
             ScenarioFlowState.verification_failed,
             ScenarioFlowState.blocked,
+            ScenarioFlowState.awaiting_user_confirmation,
             ScenarioFlowState.recovery_needed,
             ScenarioFlowState.aborted,
         }
@@ -111,12 +124,21 @@ _ALLOWED_TRANSITIONS: Mapping[ScenarioFlowState | None, frozenset[ScenarioFlowSt
     ),
     ScenarioFlowState.blocked: frozenset(
         {
+            ScenarioFlowState.awaiting_user_confirmation,
+            ScenarioFlowState.recovery_needed,
+            ScenarioFlowState.aborted,
+        }
+    ),
+    ScenarioFlowState.awaiting_user_confirmation: frozenset(
+        {
+            ScenarioFlowState.observed,
             ScenarioFlowState.recovery_needed,
             ScenarioFlowState.aborted,
         }
     ),
     ScenarioFlowState.recovery_needed: frozenset(
         {
+            ScenarioFlowState.awaiting_user_confirmation,
             ScenarioFlowState.observed,
             ScenarioFlowState.aborted,
         }
@@ -307,3 +329,77 @@ class InstrumentedScenarioStateMachine:
             live_execution_attempted=self._live_execution_attempted,
             metadata={} if metadata is None else metadata,
         )
+
+    def transition_for_recovery_plan(
+        self,
+        plan: RecoveryHandlingPlan,
+        *,
+        confidence: float | None = None,
+        metadata: Mapping[str, object] | None = None,
+    ) -> ScenarioStateTransition:
+        """Map a structured recovery plan into one explicit FSM transition."""
+
+        next_metadata = {
+            "recovery_plan_disposition": plan.disposition.value,
+            "recovery_plan_retryability": plan.retryability.value,
+            "recovery_plan_escalation_outcome": plan.escalation_outcome.value,
+            "recovery_plan_human_confirmation_status": plan.human_confirmation_status.value,
+            **dict(plan.metadata),
+            **({} if metadata is None else dict(metadata)),
+        }
+        if plan.disposition is RecoveryHandlingDisposition.await_user_confirmation:
+            return self.transition(
+                ScenarioFlowState.awaiting_user_confirmation,
+                confidence=confidence,
+                block_reason=plan.summary,
+                recovery_hint=_first_recovery_hint(plan),
+                next_expected_signal=_next_expected_signal(plan, default="operator_confirmation"),
+                metadata=next_metadata,
+            )
+        if plan.disposition in {
+            RecoveryHandlingDisposition.retry,
+            RecoveryHandlingDisposition.escalate,
+        }:
+            return self.transition(
+                ScenarioFlowState.recovery_needed,
+                confidence=confidence,
+                block_reason=plan.summary,
+                recovery_hint=_first_recovery_hint(plan),
+                next_expected_signal=_next_expected_signal(plan, default="recovery_signal"),
+                metadata=next_metadata,
+            )
+        if plan.disposition is RecoveryHandlingDisposition.blocked:
+            return self.transition(
+                ScenarioFlowState.blocked,
+                confidence=confidence,
+                block_reason=plan.summary,
+                recovery_hint=_first_recovery_hint(plan),
+                next_expected_signal=_next_expected_signal(plan, default="operator_review"),
+                metadata=next_metadata,
+            )
+        if plan.disposition is RecoveryHandlingDisposition.aborted:
+            return self.transition(
+                ScenarioFlowState.aborted,
+                confidence=confidence,
+                block_reason=plan.summary,
+                recovery_hint=_first_recovery_hint(plan),
+                next_expected_signal=_next_expected_signal(plan, default=None),
+                metadata=next_metadata,
+            )
+        raise ValueError("No state transition is defined for no_recovery_needed plans.")
+
+
+def _first_recovery_hint(plan: RecoveryHandlingPlan) -> str | None:
+    if not plan.recovery_hints:
+        return None
+    return plan.recovery_hints[0].summary
+
+
+def _next_expected_signal(
+    plan: RecoveryHandlingPlan,
+    *,
+    default: str | None,
+) -> str | None:
+    if not plan.recovery_hints:
+        return default
+    return plan.recovery_hints[0].next_expected_signal or default

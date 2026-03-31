@@ -7,6 +7,7 @@ from typing import Mapping, Protocol
 from universal_visual_os_agent.config.models import RunConfig
 from universal_visual_os_agent.geometry.models import VirtualDesktopMetrics
 from universal_visual_os_agent.policy.models import PolicyEvaluationContext
+from universal_visual_os_agent.recovery.models import RecoveryHandlingPlan
 from universal_visual_os_agent.scenarios.models import (
     ScenarioActionRunResult,
     ScenarioDefinition,
@@ -80,6 +81,15 @@ class ScenarioStateMachine(Protocol):
         metadata: Mapping[str, object] | None = None,
     ) -> ScenarioStateTransition:
         """Advance the state machine and record transition telemetry."""
+
+    def transition_for_recovery_plan(
+        self,
+        plan: RecoveryHandlingPlan,
+        *,
+        confidence: float | None = None,
+        metadata: Mapping[str, object] | None = None,
+    ) -> ScenarioStateTransition:
+        """Map one recovery/escalation/HITL plan into an explicit FSM transition."""
 
     def trace(
         self,

@@ -14,6 +14,7 @@ from universal_visual_os_agent.actions.models import (
     ActionSafetyGate,
     ActionTargetValidation,
 )
+from universal_visual_os_agent.recovery.models import RecoveryHandlingPlan
 from universal_visual_os_agent.scenarios.state_machine import ScenarioStateMachineTrace
 from universal_visual_os_agent.semantics.state import SemanticCandidateClass
 from universal_visual_os_agent.semantics.candidate_exposure import CandidateExposureView
@@ -288,6 +289,7 @@ class ScenarioStepRun:
     observed_snapshot: SemanticStateSnapshot | None = None
     exposure_view: CandidateExposureView | None = None
     verification_result: VerificationResult | None = None
+    recovery_plan: RecoveryHandlingPlan | None = None
     matched_candidate_ids: tuple[str, ...] = ()
     signal_status: str = "absent"
     state_machine_trace: ScenarioStateMachineTrace | None = None
@@ -311,6 +313,8 @@ class ScenarioStepRun:
             raise ValueError("reason must not be empty.")
         if self.signal_status not in {"available", "partial", "absent"}:
             raise ValueError("signal_status must be available, partial, or absent.")
+        if self.recovery_plan is not None and not self.recovery_plan.non_executing:
+            raise ValueError("Scenario step recovery plans must remain non-executing.")
         if (
             self.state_machine_trace is not None
             and self.state_machine_trace.live_execution_attempted
@@ -439,6 +443,7 @@ class ScenarioActionStepRun:
     dry_run_evaluation: DryRunActionEvaluation | None = None
     safe_click_execution: SafeClickExecution | None = None
     verification_result: VerificationResult | None = None
+    recovery_plan: RecoveryHandlingPlan | None = None
     matched_candidate_ids: tuple[str, ...] = ()
     selected_candidate_id: str | None = None
     selected_intent_id: str | None = None
@@ -469,6 +474,8 @@ class ScenarioActionStepRun:
             raise ValueError("Scenario action step runs must preserve observe-only inputs.")
         if not self.safety_first:
             raise ValueError("Scenario action step runs must remain safety-first.")
+        if self.recovery_plan is not None and not self.recovery_plan.non_executing:
+            raise ValueError("Scenario action step recovery plans must remain non-executing.")
         if (
             self.state_machine_trace is not None
             and self.state_machine_trace.live_execution_attempted != self.live_execution_attempted
