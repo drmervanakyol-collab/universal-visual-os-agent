@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import re
 from collections import Counter
 from dataclasses import dataclass, field, replace
 from typing import Mapping, Self
@@ -16,36 +15,21 @@ from universal_visual_os_agent.semantics.state import (
     SemanticTextBlock,
     SemanticTextRegion,
 )
+from universal_visual_os_agent.semantics.text_semantics import (
+    BUTTON_TEXT_VOCABULARY,
+    CLOSE_TEXT_VOCABULARY,
+    DISMISS_TEXT_VOCABULARY,
+    INPUT_TEXT_VOCABULARY,
+    TextSemanticVocabulary,
+    normalize_ui_phrase,
+    phrase_matches_vocabulary,
+    tokenize_ui_text,
+)
 
-_INPUT_HINTS = frozenset({"email", "filter", "find", "password", "search", "type", "username"})
-_BUTTON_HINTS = frozenset(
-    {
-        "accept",
-        "add",
-        "apply",
-        "confirm",
-        "continue",
-        "create",
-        "delete",
-        "done",
-        "install",
-        "launch",
-        "next",
-        "ok",
-        "okay",
-        "open",
-        "remove",
-        "retry",
-        "save",
-        "submit",
-        "update",
-    }
-)
-_DISMISS_HINTS = frozenset(
-    {"cancel", "dismiss", "later", "no thanks", "not now", "skip"}
-)
-_CLOSE_HINTS = frozenset({"close", "exit", "quit", "x"})
-_TOKEN_SPLIT_PATTERN = re.compile(r"[\s,.:;!?/\\|()\[\]{}\"']+")
+_INPUT_HINTS = INPUT_TEXT_VOCABULARY
+_BUTTON_HINTS = BUTTON_TEXT_VOCABULARY
+_DISMISS_HINTS = DISMISS_TEXT_VOCABULARY
+_CLOSE_HINTS = CLOSE_TEXT_VOCABULARY
 _CLASS_PRIORS = {
     SemanticCandidateClass.button_like: 0.72,
     SemanticCandidateClass.input_like: 0.74,
@@ -618,13 +602,13 @@ def _label_specificity_adjustment(
             return 0.03
         return -0.02
     if candidate_class is SemanticCandidateClass.input_like:
-        return 0.06 if any(hint in normalized_label for hint in _INPUT_HINTS) else -0.01
+        return 0.06 if _matches_phrase(normalized_label, _INPUT_HINTS) else -0.01
     if candidate_class is SemanticCandidateClass.close_like:
-        return 0.07 if normalized_label in _CLOSE_HINTS else 0.02
+        return 0.07 if _matches_phrase(normalized_label, _CLOSE_HINTS) else 0.02
     if candidate_class is SemanticCandidateClass.popup_dismiss_like:
-        return 0.06 if any(hint in normalized_label for hint in _DISMISS_HINTS) else 0.02
+        return 0.06 if _matches_phrase(normalized_label, _DISMISS_HINTS) else 0.02
     if candidate_class is SemanticCandidateClass.button_like:
-        if normalized_label in _BUTTON_HINTS or len(tokens) <= 2:
+        if _matches_phrase(normalized_label, _BUTTON_HINTS) or len(tokens) <= 2:
             return 0.04
         return -0.02
     if candidate_class is SemanticCandidateClass.interactive_region_like:
@@ -676,15 +660,15 @@ def _missing_metadata_penalty(
 
 
 def _normalize_text(text: str) -> str:
-    return " ".join(_tokenize(text))
+    return normalize_ui_phrase(text)
 
 
 def _tokenize(text: str) -> tuple[str, ...]:
-    return tuple(
-        token
-        for token in _TOKEN_SPLIT_PATTERN.split(text.lower())
-        if token
-    )
+    return tokenize_ui_text(text)
+
+
+def _matches_phrase(text: str, vocabulary: TextSemanticVocabulary) -> bool:
+    return phrase_matches_vocabulary(text, vocabulary)
 
 
 def _clamp(value: float, *, lower: float, upper: float) -> float:

@@ -96,6 +96,24 @@ def _semantic_layout_snapshot() -> SemanticStateSnapshot:
     return semantic_layout_result.snapshot
 
 
+def _semantic_layout_snapshot_turkish() -> SemanticStateSnapshot:
+    capture_result = _capture_result(_payload())
+    preparation = FullDesktopCaptureSemanticInputAdapter().prepare(capture_result)
+    state_result = PreparedSemanticStateBuilder().build(preparation)
+    text_result = PreparedSemanticTextExtractionAdapter(
+        text_backend=_StaticResponseBackend(_turkish_candidate_rich_response)
+    ).extract(preparation, state_result)
+    assert text_result.success is True
+    assert text_result.enriched_snapshot is not None
+    layout_result = GeometricLayoutRegionAnalyzer().analyze(text_result.enriched_snapshot)
+    assert layout_result.success is True
+    assert layout_result.snapshot is not None
+    semantic_layout_result = OcrAwareSemanticLayoutEnricher().enrich(layout_result.snapshot)
+    assert semantic_layout_result.success is True
+    assert semantic_layout_result.snapshot is not None
+    return semantic_layout_result.snapshot
+
+
 def _candidate_rich_response(request) -> TextExtractionResponse:
     regions_by_label = {region.label: region for region in request.regions}
     full_region = regions_by_label["Observed Desktop Surface"]
@@ -244,6 +262,144 @@ def _candidate_rich_response(request) -> TextExtractionResponse:
     )
 
 
+def _turkish_candidate_rich_response(request) -> TextExtractionResponse:
+    regions_by_label = {region.label: region for region in request.regions}
+    full_region = regions_by_label["Observed Desktop Surface"]
+    top_region = regions_by_label["Top Analysis Band"]
+    middle_region = regions_by_label["Middle Analysis Band"]
+    bottom_region = regions_by_label["Bottom Analysis Band"]
+    return TextExtractionResponse(
+        status=TextExtractionResponseStatus.completed,
+        backend_name="static_candidate_backend",
+        text_regions=(
+            SemanticTextRegion(
+                region_id=full_region.region_id,
+                label=full_region.label,
+                bounds=full_region.bounds,
+                node_id=full_region.node_id,
+                block_id=full_region.block_id,
+                role=full_region.role,
+                status=SemanticTextStatus.extracted,
+                enabled=False,
+                extracted_text="Çalışma alanı",
+                confidence=0.86,
+                metadata={"observe_only": True, "analysis_only": True},
+            ),
+            SemanticTextRegion(
+                region_id=top_region.region_id,
+                label=top_region.label,
+                bounds=top_region.bounds,
+                node_id=top_region.node_id,
+                block_id=top_region.block_id,
+                role=top_region.role,
+                status=SemanticTextStatus.extracted,
+                enabled=False,
+                extracted_text="Ana sayfa Görevler Ayarlar",
+                confidence=0.95,
+                metadata={"observe_only": True, "analysis_only": True},
+            ),
+            SemanticTextRegion(
+                region_id=middle_region.region_id,
+                label=middle_region.label,
+                bounds=middle_region.bounds,
+                node_id=middle_region.node_id,
+                block_id=middle_region.block_id,
+                role=middle_region.role,
+                status=SemanticTextStatus.extracted,
+                enabled=False,
+                extracted_text="Ara öğeler Değişiklikleri onayla Güncelle İptal Çıkış",
+                confidence=0.9,
+                metadata={"observe_only": True, "analysis_only": True},
+            ),
+            SemanticTextRegion(
+                region_id=bottom_region.region_id,
+                label=bottom_region.label,
+                bounds=bottom_region.bounds,
+                node_id=bottom_region.node_id,
+                block_id=bottom_region.block_id,
+                role=bottom_region.role,
+                status=SemanticTextStatus.extracted,
+                enabled=False,
+                extracted_text="Hazır Bağlandı",
+                confidence=0.92,
+                metadata={"observe_only": True, "analysis_only": True},
+            ),
+        ),
+        text_blocks=(
+            SemanticTextBlock(
+                text_block_id=f"{top_region.region_id}:line:1",
+                region_id=top_region.region_id,
+                label="Top Navigation Turkish",
+                bounds=NormalizedBBox(left=0.04, top=0.04, width=0.36, height=0.08),
+                enabled=False,
+                extracted_text="Ana sayfa Görevler Ayarlar",
+                confidence=0.95,
+                metadata={"observe_only": True, "analysis_only": True},
+            ),
+            SemanticTextBlock(
+                text_block_id=f"{middle_region.region_id}:line:1",
+                region_id=middle_region.region_id,
+                label="Search Field Turkish",
+                bounds=NormalizedBBox(left=0.28, top=0.28, width=0.28, height=0.08),
+                enabled=False,
+                extracted_text="Ara öğeler",
+                confidence=0.91,
+                metadata={"observe_only": True, "analysis_only": True},
+            ),
+            SemanticTextBlock(
+                text_block_id=f"{middle_region.region_id}:line:2",
+                region_id=middle_region.region_id,
+                label="Dialog Title Turkish",
+                bounds=NormalizedBBox(left=0.38, top=0.34, width=0.24, height=0.06),
+                enabled=False,
+                extracted_text="Değişiklikleri onayla",
+                confidence=0.88,
+                metadata={"observe_only": True, "analysis_only": True},
+            ),
+            SemanticTextBlock(
+                text_block_id=f"{middle_region.region_id}:line:3",
+                region_id=middle_region.region_id,
+                label="Dialog Close Turkish",
+                bounds=NormalizedBBox(left=0.59, top=0.35, width=0.05, height=0.04),
+                enabled=False,
+                extracted_text="Çıkış",
+                confidence=0.94,
+                metadata={"observe_only": True, "analysis_only": True},
+            ),
+            SemanticTextBlock(
+                text_block_id=f"{middle_region.region_id}:line:4",
+                region_id=middle_region.region_id,
+                label="Primary Action Turkish",
+                bounds=NormalizedBBox(left=0.42, top=0.46, width=0.11, height=0.07),
+                enabled=False,
+                extracted_text="Güncelle",
+                confidence=0.96,
+                metadata={"observe_only": True, "analysis_only": True},
+            ),
+            SemanticTextBlock(
+                text_block_id=f"{middle_region.region_id}:line:5",
+                region_id=middle_region.region_id,
+                label="Dismiss Action Turkish",
+                bounds=NormalizedBBox(left=0.54, top=0.46, width=0.11, height=0.07),
+                enabled=False,
+                extracted_text="İptal",
+                confidence=0.95,
+                metadata={"observe_only": True, "analysis_only": True},
+            ),
+            SemanticTextBlock(
+                text_block_id=f"{bottom_region.region_id}:line:1",
+                region_id=bottom_region.region_id,
+                label="Status Footer Turkish",
+                bounds=NormalizedBBox(left=0.25, top=0.84, width=0.36, height=0.06),
+                enabled=False,
+                extracted_text="Hazır Bağlandı",
+                confidence=0.92,
+                metadata={"observe_only": True, "analysis_only": True},
+            ),
+        ),
+    )
+
+
 def _generated_candidates(snapshot: SemanticStateSnapshot) -> tuple[SemanticCandidate, ...]:
     return tuple(
         candidate
@@ -303,6 +459,23 @@ def test_candidate_generation_candidate_metadata_is_consistent() -> None:
         source_text_block_id = candidate.metadata["source_text_block_id"]
         if source_text_block_id is not None:
             assert source_text_block_id in text_block_ids
+
+
+def test_candidate_generation_handles_turkish_ui_text_safely() -> None:
+    snapshot = _semantic_layout_snapshot_turkish()
+
+    result = ObserveOnlyCandidateGenerator().generate(snapshot)
+
+    assert result.success is True
+    assert result.snapshot is not None
+    generated_candidates = _generated_candidates(result.snapshot)
+    candidates_by_label = {candidate.label: candidate for candidate in generated_candidates}
+    assert candidates_by_label["Ara öğeler"].candidate_class is SemanticCandidateClass.input_like
+    assert candidates_by_label["Güncelle"].candidate_class is SemanticCandidateClass.button_like
+    assert candidates_by_label["İptal"].candidate_class is SemanticCandidateClass.popup_dismiss_like
+    assert candidates_by_label["Çıkış"].candidate_class is SemanticCandidateClass.close_like
+    assert candidates_by_label["ayarlar"].candidate_class is SemanticCandidateClass.tab_like
+    assert all(candidate.actionable is False for candidate in generated_candidates)
 
 
 def test_candidate_generation_handles_partial_inputs_safely() -> None:

@@ -223,6 +223,94 @@ def _empty_semantic_response(request) -> TextExtractionResponse:
     )
 
 
+def _turkish_semantic_response(request) -> TextExtractionResponse:
+    regions_by_label = {region.label: region for region in request.regions}
+    full_region = regions_by_label["Observed Desktop Surface"]
+    top_region = regions_by_label["Top Analysis Band"]
+    middle_region = regions_by_label["Middle Analysis Band"]
+    bottom_region = regions_by_label["Bottom Analysis Band"]
+    return TextExtractionResponse(
+        status=TextExtractionResponseStatus.completed,
+        backend_name="static_semantic_layout_backend",
+        text_regions=(
+            SemanticTextRegion(
+                region_id=full_region.region_id,
+                label=full_region.label,
+                bounds=full_region.bounds,
+                node_id=full_region.node_id,
+                block_id=full_region.block_id,
+                role=full_region.role,
+                status=SemanticTextStatus.extracted,
+                enabled=False,
+                extracted_text="Çalışma alanı",
+                confidence=0.9,
+                metadata={"observe_only": True, "analysis_only": True},
+            ),
+            SemanticTextRegion(
+                region_id=top_region.region_id,
+                label=top_region.label,
+                bounds=top_region.bounds,
+                node_id=top_region.node_id,
+                block_id=top_region.block_id,
+                role=top_region.role,
+                status=SemanticTextStatus.extracted,
+                enabled=False,
+                extracted_text="Dosya Görünüm Ayarlar",
+                confidence=0.96,
+                metadata={"observe_only": True, "analysis_only": True},
+            ),
+            SemanticTextRegion(
+                region_id=middle_region.region_id,
+                label=middle_region.label,
+                bounds=middle_region.bounds,
+                node_id=middle_region.node_id,
+                block_id=middle_region.block_id,
+                role=middle_region.role,
+                status=SemanticTextStatus.unavailable,
+                enabled=False,
+                extracted_text=None,
+                confidence=None,
+                metadata={"observe_only": True, "analysis_only": True},
+            ),
+            SemanticTextRegion(
+                region_id=bottom_region.region_id,
+                label=bottom_region.label,
+                bounds=bottom_region.bounds,
+                node_id=bottom_region.node_id,
+                block_id=bottom_region.block_id,
+                role=bottom_region.role,
+                status=SemanticTextStatus.extracted,
+                enabled=False,
+                extracted_text="Hazir Baglandi",
+                confidence=0.92,
+                metadata={"observe_only": True, "analysis_only": True},
+            ),
+        ),
+        text_blocks=(
+            SemanticTextBlock(
+                text_block_id=f"{top_region.region_id}:line:1",
+                region_id=top_region.region_id,
+                label="Top Navigation Turkish",
+                bounds=NormalizedBBox(left=0.02, top=0.03, width=0.48, height=0.1),
+                enabled=False,
+                extracted_text="Dosya Görünüm Ayarlar",
+                confidence=0.96,
+                metadata={"observe_only": True, "analysis_only": True},
+            ),
+            SemanticTextBlock(
+                text_block_id=f"{bottom_region.region_id}:line:1",
+                region_id=bottom_region.region_id,
+                label="Status Footer Turkish",
+                bounds=NormalizedBBox(left=0.24, top=0.84, width=0.5, height=0.08),
+                enabled=False,
+                extracted_text="Hazir Baglandi",
+                confidence=0.92,
+                metadata={"observe_only": True, "analysis_only": True},
+            ),
+        ),
+    )
+
+
 def test_semantic_layout_enrichment_refines_region_roles_and_metadata() -> None:
     snapshot = _prepared_state(text_backend=_StaticResponseBackend(_rich_semantic_response))
 
@@ -250,6 +338,26 @@ def test_semantic_layout_enrichment_refines_region_roles_and_metadata() -> None:
     assert header_node.role == "semantic_layout_region:navigation_header"
     assert header_node.attributes["semantic_layout_role"] == "navigation_header"
     assert "file" in header_node.attributes["semantic_layout_navigation_keyword_hits"]
+
+
+def test_semantic_layout_enrichment_handles_turkish_navigation_and_status_text() -> None:
+    snapshot = _prepared_state(text_backend=_StaticResponseBackend(_turkish_semantic_response))
+
+    result = OcrAwareSemanticLayoutEnricher().enrich(snapshot)
+
+    assert result.success is True
+    assert result.snapshot is not None
+    enriched_snapshot = result.snapshot
+    roles_by_kind = {region.kind.value: region.semantic_role for region in enriched_snapshot.layout_regions}
+    assert roles_by_kind["header"] is SemanticLayoutRole.navigation_header
+    assert roles_by_kind["footer"] is SemanticLayoutRole.status_footer
+    header_region = next(region for region in enriched_snapshot.layout_regions if region.kind.value == "header")
+    footer_region = next(region for region in enriched_snapshot.layout_regions if region.kind.value == "footer")
+    assert "dosya" in header_region.metadata["semantic_layout_navigation_keyword_hits"]
+    assert "görünüm" in header_region.metadata["semantic_layout_navigation_keyword_hits"]
+    assert "ayarlar" in header_region.metadata["semantic_layout_navigation_keyword_hits"]
+    assert "hazır" in footer_region.metadata["semantic_layout_status_keyword_hits"]
+    assert "bağlandı" in footer_region.metadata["semantic_layout_status_keyword_hits"]
 
 
 def test_semantic_layout_enrichment_preserves_parent_child_layout_relations() -> None:

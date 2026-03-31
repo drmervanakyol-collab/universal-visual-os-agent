@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import re
 from collections import Counter
 from dataclasses import dataclass, field, replace
 from typing import Mapping, Self
@@ -25,6 +24,16 @@ from universal_visual_os_agent.semantics.state import (
     SemanticStateSnapshot,
     SemanticTextBlock,
 )
+from universal_visual_os_agent.semantics.text_semantics import (
+    BUTTON_TEXT_VOCABULARY,
+    CLOSE_TEXT_VOCABULARY,
+    DISMISS_TEXT_VOCABULARY,
+    INPUT_TEXT_VOCABULARY,
+    TextSemanticVocabulary,
+    normalize_ui_phrase,
+    phrase_matches_vocabulary,
+    tokenize_ui_text,
+)
 
 _NAVIGATION_ROLES = frozenset(
     {
@@ -44,56 +53,10 @@ _INTERACTIVE_REGION_ROLES = frozenset(
     }
 )
 _DIALOG_ROLES = frozenset({SemanticLayoutRole.dialog_overlay})
-_BUTTON_HINTS = frozenset(
-    {
-        "accept",
-        "add",
-        "apply",
-        "confirm",
-        "continue",
-        "create",
-        "delete",
-        "done",
-        "install",
-        "launch",
-        "next",
-        "ok",
-        "okay",
-        "open",
-        "remove",
-        "retry",
-        "save",
-        "submit",
-        "update",
-    }
-)
-_INPUT_HINTS = frozenset(
-    {
-        "email",
-        "filter",
-        "find",
-        "password",
-        "search",
-        "search projects",
-        "type",
-        "type here",
-        "username",
-    }
-)
-_CLOSE_HINTS = frozenset({"close", "exit", "quit", "x"})
-_POPUP_DISMISS_HINTS = frozenset(
-    {
-        "cancel",
-        "dismiss",
-        "got it",
-        "later",
-        "maybe later",
-        "no thanks",
-        "not now",
-        "skip",
-    }
-)
-_TOKEN_SPLIT_PATTERN = re.compile(r"[\s,.:;!?/\\|()\[\]{}\"']+")
+_BUTTON_HINTS = BUTTON_TEXT_VOCABULARY
+_INPUT_HINTS = INPUT_TEXT_VOCABULARY
+_CLOSE_HINTS = CLOSE_TEXT_VOCABULARY
+_POPUP_DISMISS_HINTS = DISMISS_TEXT_VOCABULARY
 
 
 @dataclass(slots=True, frozen=True, kw_only=True)
@@ -647,7 +610,7 @@ def _classify_text_block(
     region: SemanticLayoutRegion,
     normalized_text: str,
 ) -> SemanticCandidateClass | None:
-    if region.semantic_role in _DIALOG_ROLES and normalized_text in _POPUP_DISMISS_HINTS:
+    if region.semantic_role in _DIALOG_ROLES and _matches_phrase(normalized_text, _POPUP_DISMISS_HINTS):
         return SemanticCandidateClass.popup_dismiss_like
     if _is_close_like(block, region=region, normalized_text=normalized_text):
         return SemanticCandidateClass.close_like
@@ -698,7 +661,7 @@ def _is_close_like(
     region: SemanticLayoutRegion,
     normalized_text: str,
 ) -> bool:
-    if normalized_text in _CLOSE_HINTS:
+    if _matches_phrase(normalized_text, _CLOSE_HINTS):
         return True
     if region.semantic_role not in _DIALOG_ROLES:
         return False
@@ -738,26 +701,15 @@ def _best_region_for_bounds(
 
 
 def _normalize_phrase(text: str | None) -> str:
-    if text is None:
-        return ""
-    tokens = _tokenize_for_candidates(text)
-    return " ".join(tokens)
+    return normalize_ui_phrase(text)
 
 
 def _tokenize_for_candidates(text: str | None) -> tuple[str, ...]:
-    if text is None:
-        return ()
-    return tuple(
-        token
-        for token in _TOKEN_SPLIT_PATTERN.split(text.lower())
-        if token
-    )
+    return tokenize_ui_text(text)
 
 
-def _matches_phrase(text: str, phrases: frozenset[str]) -> bool:
-    if text in phrases:
-        return True
-    return any(phrase in text for phrase in phrases)
+def _matches_phrase(text: str, phrases: TextSemanticVocabulary) -> bool:
+    return phrase_matches_vocabulary(text, phrases)
 
 
 def _candidate_source_type_for_text_block(
@@ -837,7 +789,9 @@ def _source_conflict_present_for_text_block(
     if candidate_class is SemanticCandidateClass.interactive_region_like:
         return True
     if candidate_class is SemanticCandidateClass.close_like:
-        return region.semantic_role not in _DIALOG_ROLES and normalized_text not in _CLOSE_HINTS
+        return region.semantic_role not in _DIALOG_ROLES and not _matches_phrase(
+            normalized_text, _CLOSE_HINTS
+        )
     if candidate_class is SemanticCandidateClass.popup_dismiss_like:
         return region.semantic_role not in _DIALOG_ROLES
     if candidate_class is SemanticCandidateClass.input_like and _matches_phrase(

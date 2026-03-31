@@ -17,39 +17,15 @@ from universal_visual_os_agent.semantics.state import (
     SemanticTextRegion,
     SemanticTextStatus,
 )
+from universal_visual_os_agent.semantics.text_semantics import (
+    NAVIGATION_TEXT_VOCABULARY,
+    STATUS_TEXT_VOCABULARY,
+    TextSemanticVocabulary,
+    keyword_hits as _semantic_keyword_hits,
+)
 
-_NAVIGATION_KEYWORDS = frozenset(
-    {
-        "account",
-        "dashboard",
-        "edit",
-        "file",
-        "help",
-        "home",
-        "menu",
-        "profile",
-        "search",
-        "settings",
-        "tools",
-        "view",
-    }
-)
-_STATUS_KEYWORDS = frozenset(
-    {
-        "connected",
-        "error",
-        "failed",
-        "loading",
-        "offline",
-        "online",
-        "ready",
-        "saved",
-        "saving",
-        "sync",
-        "updated",
-        "warning",
-    }
-)
+_NAVIGATION_KEYWORDS = NAVIGATION_TEXT_VOCABULARY
+_STATUS_KEYWORDS = STATUS_TEXT_VOCABULARY
 
 
 @dataclass(slots=True, frozen=True, kw_only=True)
@@ -572,22 +548,9 @@ def _signal_status(
 
 def _keyword_hits(
     texts: tuple[str, ...],
-    keywords: frozenset[str],
+    keywords: TextSemanticVocabulary,
 ) -> tuple[str, ...]:
-    matched_keywords: list[str] = []
-    for text in texts:
-        for token in _normalize_text_tokens(text):
-            if token in keywords and token not in matched_keywords:
-                matched_keywords.append(token)
-    return tuple(matched_keywords)
-
-
-def _normalize_text_tokens(text: str) -> tuple[str, ...]:
-    return tuple(
-        token.strip(" ,.:;!?/\\|-_()[]{}\"'")
-        for token in text.lower().split()
-        if token.strip(" ,.:;!?/\\|-_()[]{}\"'")
-    )
+    return _semantic_keyword_hits(texts, keywords)
 
 
 def _bbox_overlaps(first: NormalizedBBox, second: NormalizedBBox) -> bool:

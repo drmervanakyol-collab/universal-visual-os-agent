@@ -2,7 +2,11 @@ from __future__ import annotations
 
 from dataclasses import replace
 
-from test_semantic_candidate_generation import _generated_candidates, _semantic_layout_snapshot
+from test_semantic_candidate_generation import (
+    _generated_candidates,
+    _semantic_layout_snapshot,
+    _semantic_layout_snapshot_turkish,
+)
 
 from universal_visual_os_agent.semantics import (
     ObserveOnlyCandidateGenerator,
@@ -19,6 +23,14 @@ class _ExplodingCandidateScorer(ObserveOnlyCandidateScorer):
 
 def _generated_snapshot() -> SemanticStateSnapshot:
     snapshot = _semantic_layout_snapshot()
+    result = ObserveOnlyCandidateGenerator().generate(snapshot)
+    assert result.success is True
+    assert result.snapshot is not None
+    return result.snapshot
+
+
+def _generated_snapshot_turkish() -> SemanticStateSnapshot:
+    snapshot = _semantic_layout_snapshot_turkish()
     result = ObserveOnlyCandidateGenerator().generate(snapshot)
     assert result.success is True
     assert result.snapshot is not None
@@ -81,6 +93,24 @@ def test_candidate_scoring_metadata_is_consistent() -> None:
         source_text_block_id = candidate.metadata["source_text_block_id"]
         if source_text_block_id is not None:
             assert source_text_block_id in text_block_ids
+
+
+def test_candidate_scoring_handles_turkish_ui_text_safely() -> None:
+    snapshot = _generated_snapshot_turkish()
+
+    result = ObserveOnlyCandidateScorer().score(snapshot)
+
+    assert result.success is True
+    assert result.snapshot is not None
+    candidates_by_label = {
+        candidate.label: candidate
+        for candidate in _scored_generated_candidates(result.snapshot)
+    }
+    assert candidates_by_label["Ara öğeler"].score_factors["label_specificity_adjustment"] > 0.0
+    assert candidates_by_label["Güncelle"].score_factors["label_specificity_adjustment"] > 0.0
+    assert candidates_by_label["İptal"].score_factors["label_specificity_adjustment"] > 0.0
+    assert candidates_by_label["Çıkış"].score_factors["label_specificity_adjustment"] > 0.0
+    assert all(candidate.actionable is False for candidate in candidates_by_label.values())
 
 
 def test_candidate_scoring_handles_incomplete_metadata_safely() -> None:
