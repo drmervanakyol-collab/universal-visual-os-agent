@@ -1,0 +1,211 @@
+{
+  "schema_version": "production_prune_plan_v1",
+  "generated_on": "2026-03-31",
+  "source_artifacts": [
+    "docs/REPO_INVENTORY.json",
+    "docs/CONTEXT_BOUNDARIES.json",
+    "docs/SYMBOL_MAP.json",
+    "docs/CONTEXT_PACKS.json"
+  ],
+  "summary": {
+    "inventory_total_files": 306,
+    "production_critical_file_count": 35,
+    "supporting_file_count": 71,
+    "non_production_file_count": 200,
+    "diagnostic_runtime_file_count": 4,
+    "test_only_file_count": 44,
+    "archive_candidate_file_count": 132,
+    "cycle_risk_file_count": 8,
+    "split_candidate_file_count": 34
+  },
+  "release_profiles": [
+    {
+      "profile_id": "production_base_observe_runtime",
+      "default": true,
+      "purpose": "Minimal shipping package for the current Windows-first observe-only and dry-run-first runtime.",
+      "notes": [
+        "This is the recommended default production package.",
+        "It excludes diagnostics, tests, docs payloads, and optional live-input support paths."
+      ]
+    },
+    {
+      "profile_id": "production_runtime_support",
+      "default": false,
+      "purpose": "Optional ship-adjacent profile for controlled rollout of support modules, replay support, AI boundary layers, and explicitly gated safe-action scaffolding.",
+      "notes": [
+        "Do not make this the default install profile.",
+        "Only include it when there is a concrete operational need."
+      ]
+    },
+    {
+      "profile_id": "diagnostic_bundle",
+      "default": false,
+      "purpose": "Separate diagnostic and compatibility bundle for support/debug scenarios.",
+      "notes": [
+        "Must stay separate from the default production package."
+      ]
+    },
+    {
+      "profile_id": "dev_full_repo",
+      "default": false,
+      "purpose": "Full repository checkout for development, CI, tests, and hygiene work.",
+      "notes": [
+        "Not a production packaging target."
+      ]
+    }
+  ],
+  "group_recommendations": {
+    "production_include_set": {
+      "rationale": "Current observe-only production runtime, semantic pipeline, verification/recovery path, dry-run path, and primary Windows capture runtime.",
+      "path_prefixes": [
+        "src/universal_visual_os_agent/config/",
+        "src/universal_visual_os_agent/geometry/",
+        "src/universal_visual_os_agent/perception/",
+        "src/universal_visual_os_agent/persistence/",
+        "src/universal_visual_os_agent/policy/",
+        "src/universal_visual_os_agent/recovery/",
+        "src/universal_visual_os_agent/semantics/",
+        "src/universal_visual_os_agent/verification/",
+        "src/universal_visual_os_agent/app/",
+        "src/universal_visual_os_agent/scenarios/"
+      ],
+      "file_paths": [
+        "src/universal_visual_os_agent/__init__.py",
+        "src/universal_visual_os_agent/actions/models.py",
+        "src/universal_visual_os_agent/actions/interfaces.py",
+        "src/universal_visual_os_agent/actions/scaffolding.py",
+        "src/universal_visual_os_agent/actions/scaffolding_models.py",
+        "src/universal_visual_os_agent/actions/dry_run.py",
+        "src/universal_visual_os_agent/actions/dry_run_models.py",
+        "src/universal_visual_os_agent/actions/tool_boundary.py",
+        "src/universal_visual_os_agent/actions/tool_boundary_models.py",
+        "src/universal_visual_os_agent/integrations/windows/capture.py",
+        "src/universal_visual_os_agent/integrations/windows/capture_backends.py",
+        "src/universal_visual_os_agent/integrations/windows/capture_models.py",
+        "src/universal_visual_os_agent/integrations/windows/capture_dxcam.py",
+        "src/universal_visual_os_agent/integrations/windows/capture_desktop_duplication.py",
+        "src/universal_visual_os_agent/integrations/windows/screen_metrics.py"
+      ]
+    },
+    "runtime_support_set": {
+      "rationale": "Useful for staged rollout, replay, structured AI scaffolding, and narrow explicitly gated safe-action support, but not required in the smallest production package.",
+      "path_prefixes": [
+        "src/universal_visual_os_agent/ai_boundary/",
+        "src/universal_visual_os_agent/ai_architecture/",
+        "src/universal_visual_os_agent/planning/",
+        "src/universal_visual_os_agent/replay/"
+      ],
+      "file_paths": [
+        "src/universal_visual_os_agent/actions/safe_click.py",
+        "src/universal_visual_os_agent/integrations/windows/click.py"
+      ]
+    },
+    "diagnostic_only_set": {
+      "rationale": "Compatibility and foreground/diagnostic capture paths that should remain available for debugging but should not ship in the default production package.",
+      "file_paths": [
+        "src/universal_visual_os_agent/integrations/windows/capture_gdi.py",
+        "src/universal_visual_os_agent/integrations/windows/capture_printwindow.py",
+        "src/universal_visual_os_agent/integrations/windows/dxcam_capture_diagnostic.py",
+        "src/universal_visual_os_agent/integrations/windows/foreground_capture_diagnostic.py"
+      ]
+    },
+    "dev_test_only_set": {
+      "rationale": "CI, test, local scaffolding, and temporary artifacts; never part of a production package.",
+      "path_prefixes": [
+        "tests/",
+        ".tmp_test_artifacts/",
+        ".github/",
+        "src/universal_visual_os_agent/testing/"
+      ],
+      "file_paths": [
+        "requirements.in",
+        "requirements.txt"
+      ]
+    },
+    "archive_docs_only_set": {
+      "rationale": "Engineering and operator documentation that should remain in the repo but not in the runtime artifact.",
+      "path_prefixes": [
+        "docs/",
+        "docs/archive/"
+      ],
+      "file_paths": [
+        "AGENTS.md",
+        "README.md"
+      ]
+    },
+    "exclude_from_production_set": {
+      "rationale": "Areas that should stay outside the default production package until there is a real runtime need.",
+      "path_prefixes": [
+        "src/universal_visual_os_agent/memory/"
+      ],
+      "inherits_groups": [
+        "diagnostic_only_set",
+        "dev_test_only_set",
+        "archive_docs_only_set"
+      ]
+    }
+  },
+  "production_only_candidate_set": {
+    "allowlist_strategy": "allowlist_first",
+    "notes": [
+      "Use explicit include manifests for future release packaging.",
+      "Do not derive production contents by subtracting tests from the full repository."
+    ],
+    "path_prefixes": [
+      "src/universal_visual_os_agent/config/",
+      "src/universal_visual_os_agent/geometry/",
+      "src/universal_visual_os_agent/perception/",
+      "src/universal_visual_os_agent/persistence/",
+      "src/universal_visual_os_agent/policy/",
+      "src/universal_visual_os_agent/recovery/",
+      "src/universal_visual_os_agent/semantics/",
+      "src/universal_visual_os_agent/verification/",
+      "src/universal_visual_os_agent/app/",
+      "src/universal_visual_os_agent/scenarios/"
+    ],
+    "file_paths": [
+      "src/universal_visual_os_agent/__init__.py",
+      "src/universal_visual_os_agent/actions/models.py",
+      "src/universal_visual_os_agent/actions/interfaces.py",
+      "src/universal_visual_os_agent/actions/scaffolding.py",
+      "src/universal_visual_os_agent/actions/scaffolding_models.py",
+      "src/universal_visual_os_agent/actions/dry_run.py",
+      "src/universal_visual_os_agent/actions/dry_run_models.py",
+      "src/universal_visual_os_agent/actions/tool_boundary.py",
+      "src/universal_visual_os_agent/actions/tool_boundary_models.py",
+      "src/universal_visual_os_agent/integrations/windows/capture.py",
+      "src/universal_visual_os_agent/integrations/windows/capture_backends.py",
+      "src/universal_visual_os_agent/integrations/windows/capture_models.py",
+      "src/universal_visual_os_agent/integrations/windows/capture_dxcam.py",
+      "src/universal_visual_os_agent/integrations/windows/capture_desktop_duplication.py",
+      "src/universal_visual_os_agent/integrations/windows/screen_metrics.py"
+    ]
+  },
+  "release_smoke_checklist": [
+    "Confirm the package contents are allowlist-based and exclude tests, docs, temporary artifacts, and diagnostic capture files.",
+    "Run python -m compileall src tests.",
+    "Run python -m pytest -q tests -p no:cacheprovider.",
+    "Run an import smoke for the intended production profile.",
+    "Confirm production capture policy still rejects diagnostic-only fallback in production mode.",
+    "Confirm the semantic pipeline still emits non-actionable candidates by default.",
+    "Confirm dry-run and tool-boundary paths remain non-executing by default.",
+    "If the optional safe-action extension is present, confirm it remains explicitly gated and disabled by default.",
+    "Confirm no archive/docs payload is present in the built runtime artifact.",
+    "Confirm no temporary SQLite artifacts or scratch files are present in the release payload."
+  ],
+  "packaging_considerations": [
+    "Treat production pruning as profile-based packaging, not repository deletion.",
+    "Keep package __init__.py files when required for import stability even if they are excluded from default AI context packs.",
+    "Ship production_base_observe_runtime by default.",
+    "Keep production_runtime_support explicit and review-gated.",
+    "Keep diagnostic_bundle separate from the default install path.",
+    "Only promote support or diagnostic modules into the default package when there is a concrete operational need."
+  ],
+  "follow_up_order": [
+    "Define a concrete packaging manifest for production_base_observe_runtime.",
+    "Define an optional manifest for production_runtime_support.",
+    "Keep diagnostic capture files in a separate non-default bundle.",
+    "Remove .tmp_test_artifacts from any future build context.",
+    "Revisit src/universal_visual_os_agent/memory only after it becomes part of a real runtime path."
+  ]
+}

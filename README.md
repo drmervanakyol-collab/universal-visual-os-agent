@@ -81,6 +81,7 @@ python -m compileall src tests
 - [docs/README.md](docs/README.md): active docs index and archive guide
 - [docs/spec.md](docs/spec.md): source-of-truth requirements
 - [docs/execplan.md](docs/execplan.md): phased implementation plan
+- [docs/PRODUCTION_PRUNE_PLAN.md](docs/PRODUCTION_PRUNE_PLAN.md): production packaging/pruning plan
 - [docs/VALIDATION_REPORT_TEMPLATE.md](docs/VALIDATION_REPORT_TEMPLATE.md): report template for future delivery passes
 - [docs/archive/PROJECT_STATUS.md](docs/archive/PROJECT_STATUS.md): archived implementation snapshot
 - [docs/archive/NEXT_STEPS.md](docs/archive/NEXT_STEPS.md): archived planning snapshot

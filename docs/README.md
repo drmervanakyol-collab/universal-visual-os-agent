@@ -14,6 +14,7 @@ This directory is split into active working docs and archived historical materia
 - [`docs/SYMBOL_MAP.md`](SYMBOL_MAP.md): lightweight module and symbol skeletons for the AI-safe code area.
 - [`docs/CONTEXT_PACKS.md`](CONTEXT_PACKS.md): compact subsystem context packs.
 - [`docs/REPO_INVENTORY.md`](REPO_INVENTORY.md): repo-wide inventory and cleanup signals.
+- [`docs/PRODUCTION_PRUNE_PLAN.md`](PRODUCTION_PRUNE_PLAN.md): production packaging/pruning plan and release-profile guidance.
 
 ## Archived Docs
 
