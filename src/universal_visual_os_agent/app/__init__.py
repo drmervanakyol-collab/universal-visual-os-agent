@@ -29,6 +29,14 @@ from universal_visual_os_agent.app.runtime_event_models import (
     RuntimeInvalidationSignal,
     RuntimeSelectiveTrigger,
 )
+from universal_visual_os_agent.app.runtime_io import ObserveOnlyRuntimeIoBoundary
+from universal_visual_os_agent.app.runtime_io_models import (
+    RuntimeIoCallResult,
+    RuntimeIoExecutionClass,
+    RuntimeIoExecutionPolicy,
+    RuntimeIoOperationKind,
+    RuntimeIoTraceEntry,
+)
 from universal_visual_os_agent.app.runtime_events import ObserveOnlyRuntimeEventCoordinator
 
 __all__ = [
@@ -56,6 +64,12 @@ __all__ = [
     "RuntimeEventType",
     "RuntimeInvalidationScope",
     "RuntimeInvalidationSignal",
+    "RuntimeIoCallResult",
+    "RuntimeIoExecutionClass",
+    "RuntimeIoExecutionPolicy",
+    "RuntimeIoOperationKind",
+    "RuntimeIoTraceEntry",
     "RuntimeSelectiveTrigger",
     "configure_logging",
+    "ObserveOnlyRuntimeIoBoundary",
 ]

@@ -9,6 +9,8 @@ from universal_visual_os_agent.recovery.models import RecoverySnapshot
 class RepositoryBackedRecoverySnapshotLoader:
     """Compose task and checkpoint repositories into recovery snapshots."""
 
+    runtime_io_thread_offload_safe = False
+
     def __init__(
         self,
         *,

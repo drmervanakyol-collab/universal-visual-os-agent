@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Awaitable
+from collections.abc import Awaitable, Callable
 from typing import Mapping, Protocol
 
 from universal_visual_os_agent.app.models import FrameDiff, LoopPlan, LoopRequest
@@ -10,6 +10,10 @@ from universal_visual_os_agent.app.runtime_event_models import (
     RuntimeEvent,
     RuntimeEventDispatchResult,
     RuntimeEventSubmissionResult,
+)
+from universal_visual_os_agent.app.runtime_io_models import (
+    RuntimeIoCallResult,
+    RuntimeIoOperationKind,
 )
 from universal_visual_os_agent.actions.models import ActionIntent, ActionResult
 from universal_visual_os_agent.config.modes import AgentMode
@@ -120,3 +124,18 @@ class RuntimeEventCoordinator(Protocol):
 
     def dispatch_next(self) -> RuntimeEventDispatchResult:
         """Build the next runtime dispatch plan from queued events."""
+
+
+class RuntimeIoBoundary(Protocol):
+    """Boundary contract for runtime-adjacent blocking/support calls."""
+
+    async def call(
+        self,
+        *,
+        operation_kind: RuntimeIoOperationKind,
+        summary: str,
+        func: Callable[..., object],
+        args: tuple[object, ...] = (),
+        kwargs: Mapping[str, object] | None = None,
+    ) -> RuntimeIoCallResult:
+        """Execute one runtime support call with explicit boundary diagnostics."""

@@ -13,6 +13,7 @@ from universal_visual_os_agent.planning.models import PlannerDecision
 from universal_visual_os_agent.policy.models import PolicyDecision, PolicyEvaluationContext
 from universal_visual_os_agent.recovery.models import ReconciliationResult, RecoverySnapshot
 from universal_visual_os_agent.app.runtime_event_models import RuntimeEventDispatchPlan
+from universal_visual_os_agent.app.runtime_io_models import RuntimeIoTraceEntry
 from universal_visual_os_agent.semantics.state import SemanticStateSnapshot
 from universal_visual_os_agent.verification.models import (
     SemanticTransitionExpectation,
@@ -104,6 +105,7 @@ class LoopResult:
     verification_result: VerificationResult | None = None
     action_result: ActionResult | None = None
     runtime_event_dispatch: RuntimeEventDispatchPlan | None = None
+    runtime_io_trace: tuple[RuntimeIoTraceEntry, ...] = ()
     live_execution_attempted: bool = False
     safe_abort_reason: str | None = None
     error_type: str | None = None

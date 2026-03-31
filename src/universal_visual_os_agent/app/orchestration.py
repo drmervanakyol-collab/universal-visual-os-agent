@@ -15,6 +15,7 @@ from universal_visual_os_agent.app.interfaces import (
     RecoveryLoader,
     RecoveryReconciler,
     RuntimeEventCoordinator,
+    RuntimeIoBoundary,
     SemanticRebuilder,
     TransitionVerifier,
 )
@@ -28,6 +29,7 @@ from universal_visual_os_agent.app.models import (
     RetryPolicy,
 )
 from universal_visual_os_agent.app.runtime_event_models import RuntimeEvent, RuntimeEventSubmissionResult
+from universal_visual_os_agent.app.runtime_io_models import RuntimeIoOperationKind, RuntimeIoTraceEntry
 from universal_visual_os_agent.config.modes import AgentMode
 from universal_visual_os_agent.config.models import RunConfig
 from universal_visual_os_agent.perception.models import CapturedFrame
@@ -59,6 +61,7 @@ class AsyncMainLoopOrchestrator:
     recovery_reconciler: RecoveryReconciler | None = None
     action_executor: LoopActionExecutor | None = None
     runtime_event_coordinator: RuntimeEventCoordinator | None = None
+    runtime_io_boundary: RuntimeIoBoundary | None = None
     queue_maxsize: int = 16
     timeout_seconds: float = 1.0
     retry_policy: RetryPolicy = RetryPolicy()
@@ -151,16 +154,30 @@ class AsyncMainLoopOrchestrator:
 
     async def _run_request(self, request: LoopRequest) -> LoopResult:
         for attempt in range(1, self.retry_policy.max_attempts + 1):
+            runtime_io_trace: list[RuntimeIoTraceEntry] = []
             self._current_task = asyncio.current_task()
             try:
                 async with asyncio.timeout(self.timeout_seconds):
-                    return await self._execute_attempt(request, attempt)
+                    return await self._execute_attempt(request, attempt, runtime_io_trace)
+            except _RuntimeIoOperationError as exc:
+                if attempt < self.retry_policy.max_attempts and self.retry_policy.retry_on_exception:
+                    continue
+                return LoopResult(
+                    status=LoopStatus.aborted,
+                    attempt_count=attempt,
+                    request=request,
+                    runtime_event_dispatch=request.runtime_event_dispatch,
+                    runtime_io_trace=tuple(runtime_io_trace),
+                    safe_abort_reason="Loop aborted after retry exhaustion.",
+                    error_type=exc.error_type,
+                )
             except asyncio.CancelledError:
                 return LoopResult(
                     status=LoopStatus.cancelled,
                     attempt_count=attempt,
                     request=request,
                     runtime_event_dispatch=request.runtime_event_dispatch,
+                    runtime_io_trace=tuple(runtime_io_trace),
                     safe_abort_reason="Loop cancelled.",
                     error_type="CancelledError",
                 )
@@ -172,6 +189,7 @@ class AsyncMainLoopOrchestrator:
                     attempt_count=attempt,
                     request=request,
                     runtime_event_dispatch=request.runtime_event_dispatch,
+                    runtime_io_trace=tuple(runtime_io_trace),
                     safe_abort_reason="Loop timed out.",
                     error_type="TimeoutError",
                 )
@@ -183,6 +201,7 @@ class AsyncMainLoopOrchestrator:
                     attempt_count=attempt,
                     request=request,
                     runtime_event_dispatch=request.runtime_event_dispatch,
+                    runtime_io_trace=tuple(runtime_io_trace),
                     safe_abort_reason="Loop aborted after retry exhaustion.",
                     error_type=type(exc).__name__,
                 )
@@ -194,10 +213,16 @@ class AsyncMainLoopOrchestrator:
             attempt_count=self.retry_policy.max_attempts,
             request=request,
             runtime_event_dispatch=request.runtime_event_dispatch,
+            runtime_io_trace=(),
             safe_abort_reason="Loop aborted without a result.",
         )
 
-    async def _execute_attempt(self, request: LoopRequest, attempt: int) -> LoopResult:
+    async def _execute_attempt(
+        self,
+        request: LoopRequest,
+        attempt: int,
+        runtime_io_trace: list[RuntimeIoTraceEntry],
+    ) -> LoopResult:
         executed_stages: list[LoopStage] = []
 
         if request.runtime_event_dispatch is not None:
@@ -216,20 +241,32 @@ class AsyncMainLoopOrchestrator:
         reconciliation_result = None
         if self.config.mode is AgentMode.recovery_mode and request.task_id and self.recovery_loader is not None:
             executed_stages.append(LoopStage.recovery_load)
-            recovery_snapshot = await _resolve(self.recovery_loader.load_latest(request.task_id))
+            recovery_snapshot = await self._call_runtime_io(
+                operation_kind=RuntimeIoOperationKind.recovery_load,
+                summary="Load the latest recovery snapshot.",
+                func=self.recovery_loader.load_latest,
+                args=(request.task_id,),
+                runtime_io_trace=runtime_io_trace,
+            )
             if recovery_snapshot is not None and self.recovery_reconciler is not None:
                 executed_stages.append(LoopStage.recovery_reconcile)
-                reconciliation_result = await _resolve(
-                    self.recovery_reconciler.reconcile(
-                        recovery_snapshot,
-                        observed_state=_observed_state_payload(semantic_snapshot),
-                    )
+                reconciliation_result = await self._call_runtime_io(
+                    operation_kind=RuntimeIoOperationKind.recovery_reconcile,
+                    summary="Reconcile recovered state against the observed snapshot.",
+                    func=self.recovery_reconciler.reconcile,
+                    args=(recovery_snapshot,),
+                    kwargs={"observed_state": _observed_state_payload(semantic_snapshot)},
+                    runtime_io_trace=runtime_io_trace,
                 )
 
         executed_stages.append(LoopStage.policy_check)
-        policy_decision = self.policy_engine.evaluate(
-            _policy_check_action(self.config.mode),
-            context=request.policy_context or _default_policy_context(self.config),
+        policy_decision = await self._call_runtime_io(
+            operation_kind=RuntimeIoOperationKind.policy_evaluate,
+            summary="Evaluate policy for the current orchestration step.",
+            func=self.policy_engine.evaluate,
+            args=(_policy_check_action(self.config.mode),),
+            kwargs={"context": request.policy_context or _default_policy_context(self.config)},
+            runtime_io_trace=runtime_io_trace,
         )
         if policy_decision.verdict is not PolicyVerdict.allow:
             return LoopResult(
@@ -244,6 +281,7 @@ class AsyncMainLoopOrchestrator:
                 reconciliation_result=reconciliation_result,
                 policy_decision=policy_decision,
                 runtime_event_dispatch=request.runtime_event_dispatch,
+                runtime_io_trace=tuple(runtime_io_trace),
                 safe_abort_reason=policy_decision.reason,
             )
 
@@ -282,6 +320,7 @@ class AsyncMainLoopOrchestrator:
             plan=plan,
             verification_result=verification_result,
             runtime_event_dispatch=request.runtime_event_dispatch,
+            runtime_io_trace=tuple(runtime_io_trace),
             live_execution_attempted=False,
         )
 
@@ -291,6 +330,51 @@ class AsyncMainLoopOrchestrator:
 
             self.runtime_event_coordinator = ObserveOnlyRuntimeEventCoordinator()
         return self.runtime_event_coordinator
+
+    def _get_runtime_io_boundary(self) -> RuntimeIoBoundary:
+        if self.runtime_io_boundary is None:
+            from universal_visual_os_agent.app.runtime_io import ObserveOnlyRuntimeIoBoundary
+
+            self.runtime_io_boundary = ObserveOnlyRuntimeIoBoundary()
+        return self.runtime_io_boundary
+
+    async def _call_runtime_io(
+        self,
+        *,
+        operation_kind: RuntimeIoOperationKind,
+        summary: str,
+        func: Any,
+        args: tuple[object, ...] = (),
+        kwargs: dict[str, object] | None = None,
+        runtime_io_trace: list[RuntimeIoTraceEntry],
+    ) -> Any:
+        result = await self._get_runtime_io_boundary().call(
+            operation_kind=operation_kind,
+            summary=summary,
+            func=func,
+            args=args,
+            kwargs=kwargs,
+        )
+        runtime_io_trace.append(result.trace_entry)
+        if result.success:
+            return result.value
+        raise _RuntimeIoOperationError(
+            operation_kind=operation_kind,
+            error_type=result.error_type or "RuntimeIoBoundaryError",
+            error_message=result.error_message or "Runtime I/O boundary call failed.",
+        )
+
+
+@dataclass(slots=True)
+class _RuntimeIoOperationError(RuntimeError):
+    """Internal exception that preserves boundary failure metadata for retries."""
+
+    operation_kind: RuntimeIoOperationKind
+    error_type: str
+    error_message: str
+
+    def __post_init__(self) -> None:
+        super().__init__(self.error_message)
 
 
 async def _resolve(value: Any) -> Any:
