@@ -59,6 +59,23 @@ class CandidateScoreDeltaDirection(StrEnum):
 
 
 @dataclass(slots=True, frozen=True, kw_only=True)
+class VerificationTimingPolicy:
+    """Bounded polling/timing expectations for observe-only verification."""
+
+    timeout_seconds: float | None = None
+    poll_interval_ms: int | None = None
+    max_poll_attempts: int | None = None
+
+    def __post_init__(self) -> None:
+        if self.timeout_seconds is not None and self.timeout_seconds <= 0.0:
+            raise ValueError("timeout_seconds must be positive when provided.")
+        if self.poll_interval_ms is not None and self.poll_interval_ms <= 0:
+            raise ValueError("poll_interval_ms must be positive when provided.")
+        if self.max_poll_attempts is not None and self.max_poll_attempts <= 0:
+            raise ValueError("max_poll_attempts must be positive when provided.")
+
+
+@dataclass(slots=True, frozen=True, kw_only=True)
 class ExpectedSemanticOutcome:
     """A structured semantic outcome to verify from the delta layer."""
 
@@ -91,6 +108,26 @@ class ExpectedSemanticOutcome:
 
 
 @dataclass(slots=True, frozen=True, kw_only=True)
+class VerificationOutcomeBranch:
+    """One acceptable verification branch made of expected semantic outcomes."""
+
+    branch_id: str
+    summary: str
+    expected_outcomes: tuple[ExpectedSemanticOutcome, ...]
+
+    def __post_init__(self) -> None:
+        if not self.branch_id:
+            raise ValueError("branch_id must not be empty.")
+        if not self.summary:
+            raise ValueError("summary must not be empty.")
+        if not self.expected_outcomes:
+            raise ValueError("expected_outcomes must not be empty.")
+        outcome_ids = {outcome.outcome_id for outcome in self.expected_outcomes}
+        if len(outcome_ids) != len(self.expected_outcomes):
+            raise ValueError("branch expected outcome identifiers must be unique.")
+
+
+@dataclass(slots=True, frozen=True, kw_only=True)
 class SemanticTransitionExpectation:
     """Expected semantic changes between snapshots."""
 
@@ -99,6 +136,8 @@ class SemanticTransitionExpectation:
     forbidden_candidate_ids: tuple[str, ...] = ()
     required_node_ids: tuple[str, ...] = ()
     expected_outcomes: tuple[ExpectedSemanticOutcome, ...] = ()
+    alternate_outcome_branches: tuple[VerificationOutcomeBranch, ...] = ()
+    timing: VerificationTimingPolicy | None = None
 
     def __post_init__(self) -> None:
         if not self.summary:
@@ -106,6 +145,25 @@ class SemanticTransitionExpectation:
         outcome_ids = {outcome.outcome_id for outcome in self.expected_outcomes}
         if len(outcome_ids) != len(self.expected_outcomes):
             raise ValueError("expected outcome identifiers must be unique.")
+        branch_ids = {branch.branch_id for branch in self.alternate_outcome_branches}
+        if len(branch_ids) != len(self.alternate_outcome_branches):
+            raise ValueError("alternate outcome branch identifiers must be unique.")
+
+
+@dataclass(slots=True, frozen=True, kw_only=True)
+class VerificationPollAttempt:
+    """One observed poll attempt for time-aware verification."""
+
+    attempt_index: int
+    before: SemanticStateSnapshot | None = None
+    after: SemanticStateSnapshot | None = None
+    elapsed_seconds: float | None = None
+
+    def __post_init__(self) -> None:
+        if self.attempt_index <= 0:
+            raise ValueError("attempt_index must be positive.")
+        if self.elapsed_seconds is not None and self.elapsed_seconds < 0.0:
+            raise ValueError("elapsed_seconds must not be negative when provided.")
 
 
 @dataclass(slots=True, frozen=True, kw_only=True)
@@ -114,6 +172,12 @@ class SemanticStateTransition:
 
     before: SemanticStateSnapshot | None
     after: SemanticStateSnapshot | None
+    poll_attempts: tuple[VerificationPollAttempt, ...] = ()
+
+    def __post_init__(self) -> None:
+        attempt_indexes = tuple(attempt.attempt_index for attempt in self.poll_attempts)
+        if len(set(attempt_indexes)) != len(attempt_indexes):
+            raise ValueError("poll attempt indexes must be unique.")
 
 
 @dataclass(slots=True, frozen=True, kw_only=True)
@@ -146,6 +210,31 @@ class SemanticOutcomeVerification:
             raise ValueError("summary must not be empty.")
         if not self.observe_only or not self.read_only or not self.non_actionable:
             raise ValueError("Outcome verification records must remain observe-only and non-actionable.")
+
+
+@dataclass(slots=True, frozen=True, kw_only=True)
+class VerificationOutcomeBranchResult:
+    """Structured result for one acceptable verification branch."""
+
+    branch_id: str
+    summary: str
+    status: VerificationStatus
+    outcome_verifications: tuple[SemanticOutcomeVerification, ...] = ()
+    matched_outcome_ids: tuple[str, ...] = ()
+    unsatisfied_outcome_ids: tuple[str, ...] = ()
+    unknown_outcome_ids: tuple[str, ...] = ()
+    observe_only: bool = True
+    read_only: bool = True
+    non_actionable: bool = True
+    metadata: Mapping[str, object] = field(default_factory=dict)
+
+    def __post_init__(self) -> None:
+        if not self.branch_id:
+            raise ValueError("branch_id must not be empty.")
+        if not self.summary:
+            raise ValueError("summary must not be empty.")
+        if not self.observe_only or not self.read_only or not self.non_actionable:
+            raise ValueError("Branch verification results must remain observe-only and non-actionable.")
 
 
 @dataclass(slots=True, frozen=True, kw_only=True)
@@ -212,6 +301,12 @@ class VerificationResult:
     explanations: tuple[VerificationExplanation, ...] = ()
     taxonomy: VerificationTaxonomy | None = None
     semantic_delta: SemanticDelta | None = None
+    timing: VerificationTimingPolicy | None = None
+    selected_branch_id: str | None = None
+    outcome_branch_results: tuple[VerificationOutcomeBranchResult, ...] = ()
+    poll_attempt_count: int = 1
+    selected_poll_attempt: int = 1
+    selected_elapsed_seconds: float | None = None
     observe_only: bool = True
     read_only: bool = True
     non_actionable: bool = True
@@ -220,6 +315,14 @@ class VerificationResult:
     def __post_init__(self) -> None:
         if not self.summary:
             raise ValueError("summary must not be empty.")
+        if self.poll_attempt_count <= 0:
+            raise ValueError("poll_attempt_count must be positive.")
+        if self.selected_poll_attempt <= 0:
+            raise ValueError("selected_poll_attempt must be positive.")
+        if self.selected_poll_attempt > self.poll_attempt_count:
+            raise ValueError("selected_poll_attempt must not exceed poll_attempt_count.")
+        if self.selected_elapsed_seconds is not None and self.selected_elapsed_seconds < 0.0:
+            raise ValueError("selected_elapsed_seconds must not be negative when provided.")
         if not self.observe_only or not self.read_only or not self.non_actionable:
             raise ValueError("Verification results must remain observe-only and non-actionable.")
 

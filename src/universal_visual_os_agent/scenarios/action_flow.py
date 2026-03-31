@@ -750,6 +750,9 @@ class ObserveActVerifyScenarioRunner(ObserveUnderstandVerifyScenarioRunner):
             "verification_before_snapshot_id": transition_before.snapshot_id,
             "synthetic_before_snapshot": before_snapshot is None,
             "verification_status": verification_result.status.value,
+            "verification_selected_branch_id": verification_result.selected_branch_id,
+            "verification_poll_attempt_count": verification_result.poll_attempt_count,
+            "verification_selected_poll_attempt": verification_result.selected_poll_attempt,
         }
         common_kwargs = {
             "step": step,

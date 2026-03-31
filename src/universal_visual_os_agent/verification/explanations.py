@@ -170,6 +170,51 @@ class ObserveOnlyVerificationExplainer:
                 )
             )
 
+        if result.selected_branch_id not in {None, "primary_expected_outcomes"}:
+            explanations.append(
+                _result_explanation(
+                    category=(
+                        VerificationReasonCategory.expected_change_observed
+                        if result.status is VerificationStatus.satisfied
+                        else VerificationReasonCategory.ambiguous_result
+                    ),
+                    severity=(
+                        VerificationExplanationSeverity.info
+                        if result.status is VerificationStatus.satisfied
+                        else VerificationExplanationSeverity.warning
+                    ),
+                    summary=(
+                        f"Verification selected acceptable branch '{result.selected_branch_id}'."
+                    ),
+                    metadata={"selected_branch_id": result.selected_branch_id},
+                )
+            )
+
+        if result.poll_attempt_count > 1:
+            explanations.append(
+                _result_explanation(
+                    category=(
+                        VerificationReasonCategory.expected_change_observed
+                        if result.status is VerificationStatus.satisfied
+                        else VerificationReasonCategory.ambiguous_result
+                    ),
+                    severity=(
+                        VerificationExplanationSeverity.info
+                        if result.status is VerificationStatus.satisfied
+                        else VerificationExplanationSeverity.warning
+                    ),
+                    summary=(
+                        "Verification used a bounded polling window "
+                        f"({result.poll_attempt_count} attempts, selected attempt {result.selected_poll_attempt})."
+                    ),
+                    metadata={
+                        "poll_attempt_count": result.poll_attempt_count,
+                        "selected_poll_attempt": result.selected_poll_attempt,
+                        "selected_elapsed_seconds": result.selected_elapsed_seconds,
+                    },
+                )
+            )
+
         if result.missing_candidate_ids:
             explanations.append(
                 _result_explanation(
