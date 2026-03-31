@@ -7,6 +7,14 @@ from dataclasses import dataclass, field, replace
 from typing import Mapping, Self
 
 from universal_visual_os_agent.geometry import NormalizedBBox
+from universal_visual_os_agent.perception import (
+    ObserveOnlyHeuristicVisualGroundingProvider,
+    VisualAnchor,
+    VisualCueKind,
+    VisualGroundingRequest,
+    VisualGroundingSupportStatus,
+)
+from universal_visual_os_agent.perception.interfaces import VisualGroundingProvider
 from universal_visual_os_agent.semantics.ontology import (
     CandidateProvenanceRecord,
     CandidateSelectionRiskLevel,
@@ -135,10 +143,31 @@ class _GenerationArtifacts:
         return "absent"
 
 
+@dataclass(slots=True, frozen=True, kw_only=True)
+class _VisualGroundingArtifacts:
+    support_status: VisualGroundingSupportStatus
+    cue_kinds: tuple[VisualCueKind, ...] = ()
+    confidence: float | None = None
+    window_anchor: VisualAnchor | None = None
+    reference_anchor: VisualAnchor | None = None
+    metadata: Mapping[str, object] = field(default_factory=dict)
+
+
 class ObserveOnlyCandidateGenerator:
     """Derive richer, strictly non-actionable candidates from semantic metadata."""
 
     generator_name = "ObserveOnlyCandidateGenerator"
+
+    def __init__(
+        self,
+        *,
+        visual_grounder: VisualGroundingProvider | None = None,
+    ) -> None:
+        self._visual_grounder = (
+            ObserveOnlyHeuristicVisualGroundingProvider()
+            if visual_grounder is None
+            else visual_grounder
+        )
 
     def generate(self, snapshot: SemanticStateSnapshot) -> CandidateGenerationResult:
         if snapshot.layout_tree is None:
@@ -186,6 +215,20 @@ class ObserveOnlyCandidateGenerator:
                 for candidate in artifacts.generated_candidates
                 if candidate.selection_risk_level is not None
             )
+            visual_grounding_status_counts = Counter(
+                status
+                for candidate in artifacts.generated_candidates
+                if isinstance(
+                    status := candidate.metadata.get("visual_grounding_support_status"),
+                    str,
+                )
+            )
+            visual_grounding_cue_counts = Counter(
+                cue_kind
+                for candidate in artifacts.generated_candidates
+                for cue_kind in candidate.metadata.get("visual_grounding_cue_kinds", ())
+                if isinstance(cue_kind, str)
+            )
             readiness_status_counts = Counter(
                 status
                 for candidate in artifacts.generated_candidates
@@ -207,6 +250,12 @@ class ObserveOnlyCandidateGenerator:
                     "generated_candidate_class_counts": tuple(sorted(class_counts.items())),
                     "generated_candidate_source_type_counts": tuple(sorted(source_type_counts.items())),
                     "generated_candidate_risk_level_counts": tuple(sorted(risk_level_counts.items())),
+                    "generated_candidate_visual_grounding_status_counts": tuple(
+                        sorted(visual_grounding_status_counts.items())
+                    ),
+                    "generated_candidate_visual_grounding_cue_counts": tuple(
+                        sorted(visual_grounding_cue_counts.items())
+                    ),
                     "generated_candidate_resolver_readiness_status_counts": tuple(
                         sorted(readiness_status_counts.items())
                     ),
@@ -238,6 +287,10 @@ class ObserveOnlyCandidateGenerator:
                 "class_counts": tuple(sorted(class_counts.items())),
                 "source_type_counts": tuple(sorted(source_type_counts.items())),
                 "risk_level_counts": tuple(sorted(risk_level_counts.items())),
+                "visual_grounding_status_counts": tuple(
+                    sorted(visual_grounding_status_counts.items())
+                ),
+                "visual_grounding_cue_counts": tuple(sorted(visual_grounding_cue_counts.items())),
                 "resolver_readiness_status_counts": tuple(sorted(readiness_status_counts.items())),
             },
         )
@@ -295,10 +348,18 @@ class ObserveOnlyCandidateGenerator:
     ) -> SemanticCandidate | None:
         if region.semantic_role not in _INTERACTIVE_REGION_ROLES:
             return None
+        visual_grounding = self._ground_visual_subject(
+            subject_id=f"{region.region_id}:interactive_region",
+            bounds=region.bounds,
+            reference_bounds=region.bounds,
+            reference_role=None if region.semantic_role is None else region.semantic_role.value,
+            label_hint=region.label,
+        )
         explanations = [
             f"semantic layout role {region.semantic_role.value} indicates a likely interactive container",
             "layout-derived candidate remains observe-only and non-actionable in Phase 3A",
         ]
+        explanations.extend(_visual_grounding_explanations(visual_grounding))
         provenance = normalize_provenance(
             (
                 CandidateProvenanceRecord(
@@ -311,6 +372,26 @@ class ObserveOnlyCandidateGenerator:
                     source_type=SemanticCandidateSourceType.heuristic,
                     source_id=f"{region.region_id}:interactive_region",
                     source_label="interactive_region_heuristic",
+                ),
+                CandidateProvenanceRecord(
+                    source_type=SemanticCandidateSourceType.heuristic,
+                    source_id=f"{region.region_id}:visual_grounding",
+                    source_label="visual_grounding_heuristic",
+                    confidence=visual_grounding.confidence,
+                    metadata={
+                        "support_status": visual_grounding.support_status.value,
+                        "cue_kinds": tuple(cue.value for cue in visual_grounding.cue_kinds),
+                        "window_anchor": (
+                            None
+                            if visual_grounding.window_anchor is None
+                            else visual_grounding.window_anchor.value
+                        ),
+                        "reference_anchor": (
+                            None
+                            if visual_grounding.reference_anchor is None
+                            else visual_grounding.reference_anchor.value
+                        ),
+                    },
                 ),
             )
         )
@@ -366,6 +447,7 @@ class ObserveOnlyCandidateGenerator:
                     source_type.value for source_type in source_of_truth_priority
                 ),
                 "candidate_provenance": _provenance_metadata(provenance),
+                **_visual_grounding_metadata(visual_grounding),
                 "observe_only": True,
                 "analysis_only": True,
                 "non_actionable_candidate": True,
@@ -387,6 +469,13 @@ class ObserveOnlyCandidateGenerator:
         normalized_text = _normalize_phrase(block.extracted_text)
         if not normalized_text:
             return ()
+        visual_grounding = self._ground_visual_subject(
+            subject_id=block.text_block_id,
+            bounds=block.bounds,
+            reference_bounds=region.bounds,
+            reference_role=None if region.semantic_role is None else region.semantic_role.value,
+            label_hint=block.extracted_text,
+        )
 
         tokens = _tokenize_for_candidates(block.extracted_text)
         if (
@@ -398,10 +487,16 @@ class ObserveOnlyCandidateGenerator:
                 block,
                 region=region,
                 tokens=tokens,
+                visual_grounding=visual_grounding,
                 existing_candidate_ids=existing_candidate_ids,
             )
 
-        candidate_class = _classify_text_block(block, region=region, normalized_text=normalized_text)
+        candidate_class = _classify_text_block(
+            block,
+            region=region,
+            normalized_text=normalized_text,
+            visual_cue_kinds=visual_grounding.cue_kinds,
+        )
         if candidate_class is None:
             return ()
 
@@ -410,7 +505,9 @@ class ObserveOnlyCandidateGenerator:
             region=region,
             candidate_class=candidate_class,
             normalized_text=normalized_text,
+            visual_cue_kinds=visual_grounding.cue_kinds,
         )
+        explanations = tuple((*explanations, *_visual_grounding_explanations(visual_grounding)))
         source_type = _candidate_source_type_for_text_block(block=block, region=region)
         source_conflict_present = _source_conflict_present_for_text_block(
             candidate_class,
@@ -437,6 +534,7 @@ class ObserveOnlyCandidateGenerator:
             block,
             region=region,
             candidate_class=candidate_class,
+            visual_grounding=visual_grounding,
         )
         source_of_truth_priority = _source_of_truth_priority_for_text_block()
         candidate_id = _unique_candidate_id(
@@ -485,6 +583,7 @@ class ObserveOnlyCandidateGenerator:
                     source.value for source in source_of_truth_priority
                 ),
                 "candidate_provenance": _provenance_metadata(provenance),
+                **_visual_grounding_metadata(visual_grounding),
                 "observe_only": True,
                 "analysis_only": True,
                 "non_actionable_candidate": True,
@@ -502,6 +601,7 @@ class ObserveOnlyCandidateGenerator:
         *,
         region: SemanticLayoutRegion,
         tokens: tuple[str, ...],
+        visual_grounding: _VisualGroundingArtifacts,
         existing_candidate_ids: set[str],
     ) -> tuple[SemanticCandidate, ...]:
         token_bounds = _segment_bounds(block.bounds, len(tokens))
@@ -512,6 +612,7 @@ class ObserveOnlyCandidateGenerator:
                 f"semantic layout role {region.semantic_role.value if region.semantic_role else 'unknown'} "
                 "suggests tab-like navigation",
             )
+            explanations = tuple((*explanations, *_visual_grounding_explanations(visual_grounding)))
             candidate_class = SemanticCandidateClass.tab_like
             source_type = _candidate_source_type_for_text_block(block=block, region=region)
             source_conflict_present = _source_conflict_present_for_text_block(
@@ -539,6 +640,7 @@ class ObserveOnlyCandidateGenerator:
                 block,
                 region=region,
                 candidate_class=candidate_class,
+                visual_grounding=visual_grounding,
                 token_index=index,
                 token_count=len(tokens),
                 token_label=token,
@@ -591,6 +693,7 @@ class ObserveOnlyCandidateGenerator:
                         source.value for source in source_of_truth_priority
                     ),
                     "candidate_provenance": _provenance_metadata(provenance),
+                    **_visual_grounding_metadata(visual_grounding),
                     "observe_only": True,
                     "analysis_only": True,
                     "non_actionable_candidate": True,
@@ -603,21 +706,98 @@ class ObserveOnlyCandidateGenerator:
             candidates.append(_with_candidate_resolver_readiness(candidate))
         return tuple(candidates)
 
+    def _ground_visual_subject(
+        self,
+        *,
+        subject_id: str,
+        bounds: NormalizedBBox,
+        reference_bounds: NormalizedBBox | None,
+        reference_role: str | None,
+        label_hint: str | None,
+    ) -> _VisualGroundingArtifacts:
+        try:
+            result = self._visual_grounder.ground(
+                VisualGroundingRequest(
+                    request_id=f"{subject_id}:visual_grounding_request",
+                    subject_id=subject_id,
+                    subject_bounds=bounds,
+                    reference_bounds=reference_bounds,
+                    reference_role=reference_role,
+                    label_hint=label_hint,
+                )
+            )
+        except Exception as exc:  # noqa: BLE001 - grounding must remain failure-safe
+            return _VisualGroundingArtifacts(
+                support_status=VisualGroundingSupportStatus.unavailable,
+                metadata={
+                    "provider_name": type(self._visual_grounder).__name__,
+                    "error_code": "visual_grounding_exception",
+                    "error_message": str(exc),
+                    "exception_type": type(exc).__name__,
+                },
+            )
+        if not result.success or result.assessment is None:
+            return _VisualGroundingArtifacts(
+                support_status=VisualGroundingSupportStatus.unavailable,
+                metadata={
+                    "provider_name": result.provider_name,
+                    "error_code": result.error_code,
+                    "error_message": result.error_message,
+                    **dict(result.details),
+                },
+            )
+        assessment = result.assessment
+        return _VisualGroundingArtifacts(
+            support_status=assessment.support_status,
+            cue_kinds=assessment.cue_kinds,
+            confidence=assessment.confidence,
+            window_anchor=assessment.window_anchor,
+            reference_anchor=assessment.reference_anchor,
+            metadata={
+                "provider_name": result.provider_name,
+                "request_id": assessment.request_id,
+                "window_relative_center": (
+                    assessment.window_relative_center.x,
+                    assessment.window_relative_center.y,
+                ),
+                "window_area_ratio": assessment.window_area_ratio,
+                "reference_relative_center": (
+                    None
+                    if assessment.reference_relative_center is None
+                    else (
+                        assessment.reference_relative_center.x,
+                        assessment.reference_relative_center.y,
+                    )
+                ),
+                "reference_area_ratio": assessment.reference_area_ratio,
+                **dict(assessment.metadata),
+            },
+        )
+
 
 def _classify_text_block(
     block: SemanticTextBlock,
     *,
     region: SemanticLayoutRegion,
     normalized_text: str,
+    visual_cue_kinds: tuple[VisualCueKind, ...],
 ) -> SemanticCandidateClass | None:
     if region.semantic_role in _DIALOG_ROLES and _matches_phrase(normalized_text, _POPUP_DISMISS_HINTS):
         return SemanticCandidateClass.popup_dismiss_like
+    if VisualCueKind.close_affordance_like in visual_cue_kinds:
+        return SemanticCandidateClass.close_like
     if _is_close_like(block, region=region, normalized_text=normalized_text):
         return SemanticCandidateClass.close_like
-    if _matches_phrase(normalized_text, _INPUT_HINTS) or normalized_text.endswith(":"):
+    if (
+        _matches_phrase(normalized_text, _INPUT_HINTS)
+        or normalized_text.endswith(":")
+        or VisualCueKind.input_affordance_like in visual_cue_kinds
+    ):
         return SemanticCandidateClass.input_like
     if _matches_phrase(normalized_text, _BUTTON_HINTS) or (
         region.semantic_role in _DIALOG_ROLES and len(_tokenize_for_candidates(block.extracted_text)) <= 3
+    ) or (
+        VisualCueKind.dialog_action_affordance_like in visual_cue_kinds
     ):
         return SemanticCandidateClass.button_like
     if region.semantic_role in _INTERACTIVE_REGION_ROLES:
@@ -631,6 +811,7 @@ def _heuristic_explanations_for_block(
     region: SemanticLayoutRegion,
     candidate_class: SemanticCandidateClass,
     normalized_text: str,
+    visual_cue_kinds: tuple[VisualCueKind, ...],
 ) -> tuple[str, ...]:
     explanations = [
         f"text block '{block.extracted_text}' matched heuristic class {candidate_class.value}",
@@ -652,6 +833,11 @@ def _heuristic_explanations_for_block(
         explanations.append("region context is interactive but text is not specific enough for a stronger class")
     if normalized_text.endswith(":"):
         explanations.append("trailing colon suggests label-input pairing")
+    if visual_cue_kinds:
+        explanations.append(
+            "non-text visual cues supported "
+            + ", ".join(cue_kind.value for cue_kind in visual_cue_kinds)
+        )
     return tuple(explanations)
 
 
@@ -736,6 +922,7 @@ def _text_block_provenance(
     *,
     region: SemanticLayoutRegion,
     candidate_class: SemanticCandidateClass,
+    visual_grounding: _VisualGroundingArtifacts,
     token_index: int | None = None,
     token_count: int | None = None,
     token_label: str | None = None,
@@ -773,6 +960,26 @@ def _text_block_provenance(
                 source_id=f"{block.text_block_id}:{candidate_class.value}",
                 source_label=f"{candidate_class.value}_heuristic",
                 metadata=heuristic_metadata,
+            ),
+            CandidateProvenanceRecord(
+                source_type=SemanticCandidateSourceType.heuristic,
+                source_id=f"{block.text_block_id}:visual_grounding",
+                source_label="visual_grounding_heuristic",
+                confidence=visual_grounding.confidence,
+                metadata={
+                    "support_status": visual_grounding.support_status.value,
+                    "cue_kinds": tuple(cue.value for cue in visual_grounding.cue_kinds),
+                    "window_anchor": (
+                        None
+                        if visual_grounding.window_anchor is None
+                        else visual_grounding.window_anchor.value
+                    ),
+                    "reference_anchor": (
+                        None
+                        if visual_grounding.reference_anchor is None
+                        else visual_grounding.reference_anchor.value
+                    ),
+                },
             ),
         )
     )
@@ -876,6 +1083,42 @@ def _provenance_metadata(
         }
         for record in provenance
     )
+
+
+def _visual_grounding_explanations(
+    visual_grounding: _VisualGroundingArtifacts,
+) -> tuple[str, ...]:
+    if visual_grounding.support_status is VisualGroundingSupportStatus.unavailable:
+        return ("non-text visual grounding support was unavailable, so text/layout cues stayed primary",)
+    if not visual_grounding.cue_kinds:
+        return ()
+    return (
+        "structured non-text grounding inferred "
+        + ", ".join(cue_kind.value for cue_kind in visual_grounding.cue_kinds),
+    )
+
+
+def _visual_grounding_metadata(
+    visual_grounding: _VisualGroundingArtifacts,
+) -> Mapping[str, object]:
+    return {
+        "visual_grounding_support_status": visual_grounding.support_status.value,
+        "visual_grounding_cue_kinds": tuple(
+            cue_kind.value for cue_kind in visual_grounding.cue_kinds
+        ),
+        "visual_grounding_confidence": visual_grounding.confidence,
+        "visual_grounding_window_anchor": (
+            None
+            if visual_grounding.window_anchor is None
+            else visual_grounding.window_anchor.value
+        ),
+        "visual_grounding_reference_anchor": (
+            None
+            if visual_grounding.reference_anchor is None
+            else visual_grounding.reference_anchor.value
+        ),
+        **dict(visual_grounding.metadata),
+    }
 
 
 def _with_candidate_resolver_readiness(candidate: SemanticCandidate) -> SemanticCandidate:

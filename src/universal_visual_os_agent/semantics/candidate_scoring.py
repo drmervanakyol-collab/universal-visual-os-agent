@@ -6,6 +6,10 @@ from collections import Counter
 from dataclasses import dataclass, field, replace
 from typing import Mapping, Self
 
+from universal_visual_os_agent.perception import (
+    VisualCueKind,
+    VisualGroundingSupportStatus,
+)
 from universal_visual_os_agent.semantics.state import (
     SemanticCandidate,
     SemanticCandidateClass,
@@ -394,6 +398,15 @@ class ObserveOnlyCandidateScorer:
             positive_explanation="candidate label provided class-specific scoring support",
             negative_explanation="candidate label was less specific than the class prior expected",
         )
+        score = _apply_signal_adjustment(
+            score,
+            factors=factors,
+            explanations=explanations,
+            factor_name="visual_grounding_adjustment",
+            value=_visual_grounding_adjustment(candidate_class, candidate=candidate),
+            positive_explanation="non-text visual grounding cues supported the candidate class",
+            negative_explanation=None,
+        )
 
         signal_status = _signal_status(
             candidate,
@@ -616,6 +629,62 @@ def _label_specificity_adjustment(
     return 0.0
 
 
+def _visual_grounding_adjustment(
+    candidate_class: SemanticCandidateClass | None,
+    *,
+    candidate: SemanticCandidate,
+) -> float:
+    if candidate_class is None:
+        return 0.0
+    support_status = _visual_grounding_support_status(candidate)
+    if support_status is VisualGroundingSupportStatus.unavailable:
+        return 0.0
+    cue_kinds = _visual_grounding_cue_kinds(candidate)
+    if not cue_kinds:
+        return 0.0
+
+    aligned_bonus = 0.0
+    if (
+        candidate_class is SemanticCandidateClass.close_like
+        and VisualCueKind.close_affordance_like in cue_kinds
+    ):
+        aligned_bonus = 0.05
+    elif (
+        candidate_class is SemanticCandidateClass.popup_dismiss_like
+        and VisualCueKind.dialog_action_affordance_like in cue_kinds
+    ):
+        aligned_bonus = 0.04
+    elif (
+        candidate_class is SemanticCandidateClass.button_like
+        and VisualCueKind.dialog_action_affordance_like in cue_kinds
+    ):
+        aligned_bonus = 0.03
+    elif (
+        candidate_class is SemanticCandidateClass.input_like
+        and VisualCueKind.input_affordance_like in cue_kinds
+    ):
+        aligned_bonus = 0.05
+    elif (
+        candidate_class is SemanticCandidateClass.tab_like
+        and VisualCueKind.navigation_affordance_like in cue_kinds
+    ):
+        aligned_bonus = 0.05
+    elif (
+        candidate_class is SemanticCandidateClass.interactive_region_like
+        and VisualCueKind.container_affordance_like in cue_kinds
+    ):
+        aligned_bonus = 0.03
+    if aligned_bonus == 0.0:
+        return 0.0
+
+    confidence = candidate.metadata.get("visual_grounding_confidence")
+    confidence_multiplier = 1.0 if not isinstance(confidence, float) else max(0.6, confidence)
+    support_multiplier = (
+        1.0 if support_status is VisualGroundingSupportStatus.available else 0.5
+    )
+    return round(min(0.06, aligned_bonus * confidence_multiplier * support_multiplier), 4)
+
+
 def _signal_status(
     candidate: SemanticCandidate,
     *,
@@ -669,6 +738,31 @@ def _tokenize(text: str) -> tuple[str, ...]:
 
 def _matches_phrase(text: str, vocabulary: TextSemanticVocabulary) -> bool:
     return phrase_matches_vocabulary(text, vocabulary)
+
+
+def _visual_grounding_support_status(candidate: SemanticCandidate) -> VisualGroundingSupportStatus:
+    raw_status = candidate.metadata.get("visual_grounding_support_status")
+    if isinstance(raw_status, str):
+        try:
+            return VisualGroundingSupportStatus(raw_status)
+        except ValueError:
+            return VisualGroundingSupportStatus.unavailable
+    return VisualGroundingSupportStatus.unavailable
+
+
+def _visual_grounding_cue_kinds(candidate: SemanticCandidate) -> tuple[VisualCueKind, ...]:
+    raw_cue_kinds = candidate.metadata.get("visual_grounding_cue_kinds")
+    if not isinstance(raw_cue_kinds, tuple):
+        return ()
+    cue_kinds: list[VisualCueKind] = []
+    for raw_cue_kind in raw_cue_kinds:
+        if not isinstance(raw_cue_kind, str):
+            continue
+        try:
+            cue_kinds.append(VisualCueKind(raw_cue_kind))
+        except ValueError:
+            continue
+    return tuple(dict.fromkeys(cue_kinds))
 
 
 def _clamp(value: float, *, lower: float, upper: float) -> float:

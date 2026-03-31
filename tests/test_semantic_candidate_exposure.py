@@ -100,6 +100,14 @@ def test_candidate_exposure_metadata_is_consistent() -> None:
         assert exposed_candidate.source_layout_region_id == source_candidate.metadata["source_layout_region_id"]
         assert exposed_candidate.source_text_region_id == source_candidate.metadata["source_text_region_id"]
         assert exposed_candidate.source_text_block_id == source_candidate.metadata["source_text_block_id"]
+        assert (
+            exposed_candidate.metadata["visual_grounding_support_status"]
+            == source_candidate.metadata["visual_grounding_support_status"]
+        )
+        assert (
+            exposed_candidate.metadata["visual_grounding_cue_kinds"]
+            == source_candidate.metadata["visual_grounding_cue_kinds"]
+        )
 
 
 def test_candidate_exposure_handles_incomplete_metadata_safely() -> None:

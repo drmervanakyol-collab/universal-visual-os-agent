@@ -733,6 +733,28 @@ class ObserveOnlyLocalVisualResolverScaffolder:
                 "candidate_rank": exposed_candidate.rank,
                 "candidate_visibility": exposed_candidate.visible,
                 "candidate_score": exposed_candidate.score,
+                "visual_grounding_support_status": exposed_candidate.metadata.get(
+                    "visual_grounding_support_status"
+                ),
+                "visual_grounding_cue_kinds": exposed_candidate.metadata.get(
+                    "visual_grounding_cue_kinds",
+                    (),
+                ),
+                "visual_grounding_confidence": exposed_candidate.metadata.get(
+                    "visual_grounding_confidence"
+                ),
+                "visual_grounding_window_anchor": exposed_candidate.metadata.get(
+                    "visual_grounding_window_anchor"
+                ),
+                "visual_grounding_reference_anchor": exposed_candidate.metadata.get(
+                    "visual_grounding_reference_anchor"
+                ),
+                "visual_grounding_window_relative_center": exposed_candidate.metadata.get(
+                    "window_relative_center"
+                ),
+                "visual_grounding_reference_relative_center": exposed_candidate.metadata.get(
+                    "reference_relative_center"
+                ),
             },
         )
         completeness_status = (

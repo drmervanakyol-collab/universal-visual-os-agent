@@ -113,6 +113,22 @@ def test_candidate_scoring_handles_turkish_ui_text_safely() -> None:
     assert all(candidate.actionable is False for candidate in candidates_by_label.values())
 
 
+def test_candidate_scoring_uses_visual_grounding_support_conservatively() -> None:
+    snapshot = _generated_snapshot()
+
+    result = ObserveOnlyCandidateScorer().score(snapshot)
+
+    assert result.success is True
+    assert result.snapshot is not None
+    candidates_by_label = {
+        candidate.label: candidate
+        for candidate in _scored_generated_candidates(result.snapshot)
+    }
+    assert candidates_by_label["Search projects"].score_factors["visual_grounding_adjustment"] > 0.0
+    assert candidates_by_label["X"].score_factors["visual_grounding_adjustment"] > 0.0
+    assert all(candidate.actionable is False for candidate in candidates_by_label.values())
+
+
 def test_candidate_scoring_handles_incomplete_metadata_safely() -> None:
     snapshot = _generated_snapshot()
     candidate_with_text_sources = next(

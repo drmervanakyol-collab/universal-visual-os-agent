@@ -9,6 +9,9 @@ from universal_visual_os_agent.perception import (
     CaptureResult,
     CapturedFrame,
     FrameImagePayload,
+    ObserveOnlyHeuristicVisualGroundingConfig,
+    ObserveOnlyHeuristicVisualGroundingProvider,
+    VisualGroundingAvailability,
 )
 from universal_visual_os_agent.semantics import (
     FullDesktopCaptureSemanticInputAdapter,
@@ -429,6 +432,53 @@ def test_candidate_generation_builds_non_actionable_candidates_from_enriched_sna
         SemanticCandidateClass.interactive_region_like,
     }.issubset(generated_classes)
     assert all(candidate.enabled is False for candidate in generated_candidates)
+
+
+def test_candidate_generation_adds_visual_grounding_metadata_safely() -> None:
+    snapshot = _semantic_layout_snapshot()
+
+    result = ObserveOnlyCandidateGenerator().generate(snapshot)
+
+    assert result.success is True
+    assert result.snapshot is not None
+    generated_candidates = {
+        candidate.label: candidate
+        for candidate in _generated_candidates(result.snapshot)
+    }
+    close_candidate = generated_candidates["X"]
+    input_candidate = generated_candidates["Search projects"]
+    assert close_candidate.metadata["visual_grounding_support_status"] == "available"
+    assert "close_affordance_like" in close_candidate.metadata["visual_grounding_cue_kinds"]
+    assert close_candidate.metadata["visual_grounding_reference_anchor"] == "center_right"
+    assert input_candidate.metadata["visual_grounding_support_status"] == "available"
+    assert "input_affordance_like" in input_candidate.metadata["visual_grounding_cue_kinds"]
+    assert result.snapshot.metadata["generated_candidate_visual_grounding_status_counts"]
+    assert result.snapshot.metadata["generated_candidate_visual_grounding_cue_counts"]
+
+
+def test_candidate_generation_handles_unavailable_visual_grounding_support_safely() -> None:
+    snapshot = _semantic_layout_snapshot()
+    generator = ObserveOnlyCandidateGenerator(
+        visual_grounder=ObserveOnlyHeuristicVisualGroundingProvider(
+            config=ObserveOnlyHeuristicVisualGroundingConfig(
+                availability=VisualGroundingAvailability.unavailable
+            )
+        )
+    )
+
+    result = generator.generate(snapshot)
+
+    assert result.success is True
+    assert result.snapshot is not None
+    generated_candidates = _generated_candidates(result.snapshot)
+    assert generated_candidates
+    assert all(
+        candidate.metadata["visual_grounding_support_status"] == "unavailable"
+        for candidate in generated_candidates
+    )
+    assert ("unavailable", len(generated_candidates)) in result.snapshot.metadata[
+        "generated_candidate_visual_grounding_status_counts"
+    ]
     assert all(candidate.actionable is False for candidate in generated_candidates)
 
 
